@@ -1,0 +1,28 @@
+version: "3.7"
+services:
+  dev:
+    container_name: dev
+    build: .
+    volumes:
+      - .:/code
+      - stack-work:/code/.stack-work
+      - stack-root:/stack-root
+      - ~/.ssh:/tmp/.ssh
+
+    working_dir: /code
+    environment:
+      CONN_STRING: "host=db user=test"
+    command: ["sh", "-c", "script/bootstrap && tail -f /dev/null"]
+
+  db:
+    image: postgres:12.3
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - 54329:5432
+
+volumes:
+  stack-root:
+  stack-work:
+

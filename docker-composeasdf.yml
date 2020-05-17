@@ -1,0 +1,26 @@
+version: "3"
+services:
+  dev:
+    container_name: orville-json-dev
+    build: .
+    volumes:
+      - .:/dev
+      - stack-work:/dev/.stack-work
+      - stack-root:/stack-root
+    working_dir: /dev
+    depends_on:
+      - db
+    environment:
+      CONN_STRING: "host=db user=test"
+
+  db:
+    image: postgres:12.3
+    environment:
+      POSTGRES_USER: test
+    ports:
+      - 54329:5432
+
+volumes:
+  stack-root:
+  stack-work:
+

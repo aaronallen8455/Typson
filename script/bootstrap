@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set +x
+
+# Copy host user SSH keys into container as root user keys
+# /tmp/.ssh mount is specified in docker-compose.yml
+cp -R /tmp/.ssh /root/
+ssh-keygen -F github.com || ssh-keyscan github.com >> /root/.ssh/known_hosts
+chmod 700 /root/.ssh
+chmod 644 /root/.ssh/id_rsa.pub
+chmod 600 /root/.ssh/id_rsa
+
