@@ -10,28 +10,30 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- {-# LANGUAGE PartialTypeSignatures #-}
 -- {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-module JsonTree
-  ( JsonTree(..)
-  , CollapseMaybes
-  , TypeAtPath
-  , ReflectPath(..)
-  , type (.=)
-  , type (.==)
-  , (:->)
-  , type (:->>)
-  , toValue
-  ) where
+module JsonTree where
+--  ( JsonTree(..)
+--  , CollapseMaybes
+--  , TypeAtPath
+--  , ReflectPath(..)
+--  , type (.=)
+--  , type (.==)
+--  , (:->)
+--  , type (:->>)
+--  , toValue
+--  ) where
 
 import           Data.Aeson
-import qualified Data.Aeson.Types (Parser)
+import           Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as HM
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Text as T
+import           Data.Traversable (for)
 import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 --------------------------------------------------------------------------------
@@ -43,31 +45,81 @@ data (fieldName :: Symbol) .= (a :: (Type, [Type]))
 
 type fieldName .== a = fieldName .= '(a, '[])
 
+data Nat = Z | S Nat
+
 -- | Used to construct both a JSON mapping and a type level schema
 -- of that object's fields
-data JsonTree (o :: Type) (parser :: Type) (fields :: [Type]) where
+data JsonTree (o :: Type) (fields :: [Type]) (depth :: Nat) (complete :: Bool) where
   -- | base constructor
-  EmptyObj :: JsonTree o p '[]
-  CompleteObj :: String -> con -> JsonTree o (Uncurry con o) fields -> JsonTree  JsonTree o o fields
+  EmptyObj :: JsonTree o '[] 'Z 'False
+  CompleteObj :: String -> con -> JsonTree o con fields ('S d) 'False -> JsonTree o con fields ('S d) 'True
   -- | A field for a subject, adding depth to the tree
-  SubObj   :: forall fieldName fields subFields f o c. KnownSymbol fieldName
+  SubObj   :: forall fieldName fields subFields f o c fp. KnownSymbol fieldName
            => (o -> f)
-           -> JsonTree f f subFields
-           -> JsonTree o (f -> c) fields
-           -> JsonTree o c ((fieldName .= '(f, subFields)) ': fields)
+           -> JsonTree f subFields sd 'True
+           -> JsonTree o fields d 'False
+           -> JsonTree o ((fieldName .= '(f, subFields)) ': fields) ('S d) 'False
   -- | A field for a sub-object that is wrapped in some Functor
-  Optional  :: forall fieldName fields subFields f o a c. KnownSymbol fieldName
+  Optional  :: forall fieldName fields subFields f o a c ap. KnownSymbol fieldName
             => (o -> Maybe a)
-            -> JsonTree a a subFields
-            -> JsonTree o (a -> c) fields
-            -> JsonTree o c ((fieldName .= '(Maybe a, subFields)) ': fields)
+            -> JsonTree a subFields sd 'True
+            -> JsonTree o c fields d 'False
+            -> JsonTree o ((fieldName .= '(Maybe a, subFields)) ': fields) ('S d) 'False
   -- | The leaves of the tree
-  Prim     :: forall fieldName fields o f c. (ToJSON f, KnownSymbol fieldName)
+  Prim     :: forall fieldName fields o f c. (ToJSON f, FromJSON f, KnownSymbol fieldName)
            => (o -> f)
-           -> JsonTree o (f -> c) fields
-           -> JsonTree o c ((fieldName .== f) ': fields)
+           -> JsonTree o fields d 'False
+           -> JsonTree o ((fieldName .== f) ': fields) ('S d) 'False
+-- TODO need OptionalPrim
 
-type JsonTree' o fields = JsonTree o o fields
+class FromObject t o where
+  fromObject :: t -> Object -> Parser o
+
+instance FromObject (Parser c, JsonTree o c fields 'False) o
+  => FromObject (JsonTree o c fields 'True) o where
+    fromObject (CompleteObj name con rest) = fromObject (pure @Parser con, rest)
+
+instance (FromObject (Parser p, JsonTree o p rest 'False) o, FromObject (JsonTree a sp sub 'True) a, FromObject (Parser sp, JsonTree a sp sub 'False) a)
+  => FromObject (Parser (a -> p), JsonTree o (a -> p) ((fName .= '(a, sub)) ': rest) 'False) o
+  where
+    fromObject (p, SubObj _ subtree@(CompleteObj subName _ _) rest) obj =
+      fromObject (p <*> parser, rest) obj
+        where
+          parser = do
+            v <- obj .: T.pack (symbolVal (Proxy :: Proxy fName))
+            flip (withObject subName) v $ \o ->
+              fromObject subtree o
+    fromObject (p, Optional _ subtree@(CompleteObj subName _ _) rest) obj =
+      fromObject (p <*> parser, rest) obj
+        where
+          parser = do
+            mbV <- obj .:? T.pack (symbolVal (Proxy :: Proxy fName))
+            for mbV $ \v ->
+              flip (withObject subName) v $ \o ->
+                fromObject subtree o
+    fromObject (p, Prim _ rest) obj =
+      fromObject ( p <*> obj .: T.pack (symbolVal (Proxy :: Proxy fName))
+                 , rest
+                 )
+                 obj
+
+-- need Nat to be able to be inductive from complete object down to empty object?
+
+fromValue :: () --FromObject (JsonTree o c fields 'True) o
+          => JsonTree o c fields 'True -> Value -> Parser o
+fromValue (CompleteObj name _ rest) =
+  withObject name $ \o -> fromObject rest o
+
+
+
+  {-
+
+class GetFieldName f where
+  getFieldName :: f -> T.Text
+
+instance KnownSymbol fieldName => GetFieldName (JsonTree o p (fieldName .= v ': rest) 'False) where
+  getFieldName _ = T.pack (symbolVal (Proxy :: Proxy fieldName))
+
 
 --------------------------------------------------------------------------------
 -- ToJSON
@@ -87,12 +139,6 @@ toObject t@(Optional acc subTree rest) obj
 
 toValue :: JsonTree' a fields -> a -> Value
 toValue t = Object . toObject t
-
-class GetFieldName f where
-  getFieldName :: f -> T.Text
-
-instance KnownSymbol fieldName => GetFieldName (JsonTree o p (fieldName .= v ': rest)) where
-  getFieldName _ = T.pack (symbolVal (Proxy :: Proxy fieldName))
 
 --------------------------------------------------------------------------------
 -- FromJSON
@@ -194,3 +240,4 @@ atPath (Object obj) _ =
    in go path obj
 atPath _ _ = Nothing
 
+-}
