@@ -3,17 +3,18 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 module TestGraph
-  ( Foo(..)
-  , fooJ
-  , fooGen
-  , Bar(..)
-  , barJ
-  , barGen
-  , Baz(..)
-  , bazJ
-  , graphGen
+  ( -- Foo(..)
+--  , fooJ
+--  , fooGen
+--  , Bar(..)
+--  , barJ
+--  , barGen
+--  , Baz(..)
+--  , bazJ
+--  , graphGen
   ) where
 
+  {-
 import           Data.Aeson ((.:), (.:?), FromJSON(..), ToJSON(..), withObject)
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
@@ -128,3 +129,4 @@ instance FromJSON Baz where
     <$> o .: "baz1"
     <*> o .:? "baz2"
     <*> o .: "baz3"
+    -}

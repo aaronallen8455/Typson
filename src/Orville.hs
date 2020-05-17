@@ -4,8 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Orville
-  ( jsonPathFromSql
-  , json
+  ( --jsonPathFromSql
+  --, json
   ) where
 
 import           Control.Monad ((<=<))
@@ -17,6 +17,7 @@ import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
+  {-
 import           JsonTree (CollapseMaybes, JsonTree, TypeAtPath, ReflectPath(..))
 
 jsonPathFromSql :: forall path o fields field.
@@ -62,3 +63,4 @@ byteStringFromSql sql =
     HDBC.SqlString string -> Just $ BS8.pack string
     _ -> Nothing
 
+-}
