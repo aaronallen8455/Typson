@@ -1,11 +1,11 @@
 module TestEntity
-  ( -- Entity(..)
---  , EntityKey
---  , entityTable
---  , idField
---  , graphField
+  ( Entity(..)
+  , EntityKey
+  , entityTable
+  , idField
+  , graphField
   ) where
-    {-
+
 import           Data.Int (Int32)
 
 import qualified Database.Orville.PostgreSQL as O
@@ -41,4 +41,3 @@ idField = O.automaticIdField "id" `O.withFlag` O.PrimaryKey
 
 graphField :: O.FieldDefinition Baz
 graphField = O.fieldOfType json "graph"
--}

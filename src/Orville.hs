@@ -4,8 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Orville
-  ( --jsonPathFromSql
-  --, json
+  ( jsonPathFromSql
+  , json
   ) where
 
 import           Control.Monad ((<=<))
@@ -17,16 +17,15 @@ import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-  {-
 import           JsonTree (CollapseMaybes, JsonTree, TypeAtPath, ReflectPath(..))
 
-jsonPathFromSql :: forall path o fields field.
-                   ( CollapseMaybes (TypeAtPath (JsonTree o fields) path) ~ field
+jsonPathFromSql :: forall path o fields field con d.
+                   ( CollapseMaybes (TypeAtPath (JsonTree o con con fields d) path) ~ field
                    , ReflectPath path
                    , FromJSON field
                    , ToJSON field
                    )
-                => JsonTree o fields
+                => JsonTree o con con fields d
                 -> O.FieldDefinition o
                 -> O.FromSql field
 jsonPathFromSql _ fieldDef = O.fieldFromSql $ O.fieldOfType json path
@@ -63,4 +62,3 @@ byteStringFromSql sql =
     HDBC.SqlString string -> Just $ BS8.pack string
     _ -> Nothing
 
--}

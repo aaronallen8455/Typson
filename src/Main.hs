@@ -12,16 +12,11 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           System.Environment (lookupEnv)
 
-  {-
 import           JsonTree (type (:->), type (:->>))
 import           Orville (jsonPathFromSql)
 import           TestEntity (Entity(..), entityTable, graphField)
 import           TestGraph (graphGen, bazJ)
--}
 
-main = pure ()
-
-  {-
 main :: IO ()
 main = do
   Just connString <- lookupEnv "CONN_STRING"
@@ -53,4 +48,3 @@ runQueries = do
     jsonSql :: O.FromSql Bool
     jsonSql = jsonPathFromSql @("baz1" :-> "bar1" :->> "foo1") bazJ graphField
 
--}
