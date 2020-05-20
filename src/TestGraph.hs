@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- Avoids nasty boilerplate
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 module TestGraph
@@ -17,11 +18,12 @@ module TestGraph
   ) where
 
 import           Data.Aeson ((.:), (.:?), FromJSON(..), ToJSON(..), withObject)
+import           Data.Function ((&))
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
 
-import           JsonTree (JsonTree(..), Nat(..), Nullability(..), fromValue, toValue, type (.=), type (.==))
+import           JsonTree (JTree, JsonTree(..), Nat(..), Nullability(..), fromValue, toValue, type (.=), type (.==))
 
 data Foo =
   Foo
@@ -30,19 +32,11 @@ data Foo =
     , foo3 :: String
     }
 
-type FooTree =
-  JsonTree
-    Foo
-    (Bool -> Maybe Int -> String -> Foo)
-    (Bool -> Maybe Int -> String -> Foo)
-    '["foo1" .== Bool, "foo2" .== Maybe Int, "foo3" .== String]
-    ('S ('S ('S 'Z)))
-
-fooJ :: FooTree
-fooJ = Prim @"foo1" foo1
-     . Prim @"foo2" foo2
-     . Prim @"foo3" foo3
-     $ EmptyObj Foo "Foo"
+fooJ :: JTree Foo _ _
+fooJ = Obj Foo "Foo"
+     & Prim    @"foo1" foo1
+     . OptPrim @"foo2" foo2
+     . Prim    @"foo3" foo3
 
 instance ToJSON Foo where
   toJSON = toValue fooJ
@@ -64,11 +58,11 @@ data Bar =
     , bar3 :: Double
     }
 
-barJ :: JsonTree Bar _ _ _ _
-barJ = SubObj   @"bar1" bar1 fooJ
+barJ :: JTree Bar _ _
+barJ = Obj Bar "Bar"
+     & SubObj   @"bar1" bar1 fooJ
      . Optional @"bar2" bar2 fooJ
      . Prim     @"bar3" bar3
-     $ EmptyObj Bar "Bar"
 
 instance ToJSON Bar where
   toJSON = toValue barJ
@@ -90,11 +84,11 @@ data Baz =
     , baz3 :: Foo
     }
 
-bazJ :: JsonTree Baz _ _ _ _
-bazJ = SubObj   @"baz1" baz1 barJ
+bazJ :: JTree Baz _ _
+bazJ = Obj Baz "Baz"
+     & SubObj   @"baz1" baz1 barJ
      . Optional @"baz2" baz2 barJ
      . SubObj   @"baz3" baz3 fooJ
-     $ EmptyObj Baz "Baz"
 
 instance ToJSON Baz where
   toJSON = toValue bazJ

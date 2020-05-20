@@ -11,10 +11,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
--- {-# LANGUAGE PartialTypeSignatures #-}
--- {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
+{-# LANGUAGE RankNTypes #-}
 module JsonTree
   ( SomeJsonTree
   , JsonTree(..)
@@ -23,13 +20,14 @@ module JsonTree
   , ReflectPath(..)
   , type (.=)
   , type (.==)
-  , (:->)
+  , type (:->)
   , type (:->>)
   , Nat(..)
   , Nullability(..)
   , toValue
   , fromValue
   , obj
+  , JTree
   ) where
 
 import           Data.Aeson
@@ -52,59 +50,61 @@ type family ApNull (a :: Nullability) (b :: Type) :: Type where
   ApNull NonNull a = a
 
 -- | Type level key value pairs
-data (fieldName :: Symbol) .= (a :: (Nullability, Type, Nat, Type, [Type])) -- nullable, the type, depth, constructor, fields
+data (fieldName :: Symbol) .= (a :: (Nullability, Type, Type, [Type])) -- nullable, the type, constructor, fields
 
-type fieldName .== a = fieldName .= '( 'NonNull, a, 'Z, a, '[])
+type fieldName .== a = fieldName .= '( 'NonNull, a, a, '[])
 
 data Nat = Z | S Nat
 
+type JTree o f con = JsonTree o con con f
+
 data SomeJsonTree (o :: Type) (fields :: [Type]) where
-  SomeJsonTree :: FromObject (Parser con, JsonTree o con con fields ('S depth)) o
-               => JsonTree o con con fields ('S depth)
+  SomeJsonTree :: FromObject (Parser con, JsonTree o con con fields) o
+               => JsonTree o con con fields
                -> SomeJsonTree o fields
 
 -- Smart constructors (useless)
-obj :: FromObject (Parser p, JsonTree o p p fields ('S d)) o
+obj :: FromObject (Parser p, JsonTree o p p fields) o
     => con
     -> String
-    -> (JsonTree o o con '[] 'Z -> JsonTree o p p fields ('S d))
+    -> (JsonTree o o con '[] -> JsonTree o p p fields)
     -> SomeJsonTree o fields
-obj con name fields = SomeJsonTree . fields $ EmptyObj con name
+obj con name fields = SomeJsonTree . fields $ Obj con name
 
 -- | Used to construct both a JSON mapping and a type level schema
 -- of that object's fields
-data JsonTree (o :: Type) (p :: Type) (con :: Type) (fields :: [Type]) (depth :: Nat) where
+data JsonTree (o :: Type) (p :: Type) (con :: Type) (fields :: [Type]) where
   -- | base constructor
-  EmptyObj :: con -> String -> JsonTree o o con '[] 'Z
+  Obj :: con -> String -> JsonTree o o con '[]
 
   -- | A field for a subject, adding depth to the tree
-  SubObj   :: forall fieldName fields subFields f o con d sd p sp. KnownSymbol fieldName
+  SubObj   :: forall fieldName fields subFields f o con p sp. KnownSymbol fieldName
            => (o -> f)
-           -> JsonTree f sp sp subFields ('S sd)
-           -> JsonTree o p con fields d
-           -> JsonTree o (f -> p) con ((fieldName .= '( 'NonNull, f, 'S sd, sp, subFields)) ': fields) ('S d)
+           -> JsonTree f sp sp subFields
+           -> JsonTree o p con fields
+           -> JsonTree o (f -> p) con ((fieldName .= '( 'NonNull, f, sp, subFields)) ': fields)
 
   -- | A field for a sub-object that is wrapped in some Functor
-  Optional  :: forall fieldName fields subFields f o a con ap d sd p sp. KnownSymbol fieldName
+  Optional  :: forall fieldName fields subFields f o a con ap p sp. KnownSymbol fieldName
             => (o -> Maybe a)
-            -> JsonTree a sp sp subFields ('S sd)
-            -> JsonTree o p con fields d
-            -> JsonTree o (Maybe a -> p) con ((fieldName .= '( 'Nullable, a, 'S sd, sp, subFields)) ': fields) ('S d)
+            -> JsonTree a sp sp subFields
+            -> JsonTree o p con fields
+            -> JsonTree o (Maybe a -> p) con ((fieldName .= '( 'Nullable, a, sp, subFields)) ': fields)
 
   -- | The leaves of the tree
-  Prim     :: forall fieldName fields o f con d p. (ToJSON f, FromJSON f, KnownSymbol fieldName)
+  Prim     :: forall fieldName fields o f con p. (ToJSON f, FromJSON f, KnownSymbol fieldName)
            => (o -> f)
-           -> JsonTree o p con fields d
-           -> JsonTree o (f -> p) con ((fieldName .== f) ': fields) ('S d)
+           -> JsonTree o p con fields
+           -> JsonTree o (f -> p) con ((fieldName .== f) ': fields)
 
   -- | Optional leaves
-  OptPrim :: forall fieldName fields o f con d p. (ToJSON f, FromJSON f, KnownSymbol fieldName)
+  OptPrim :: forall fieldName fields o f con p. (ToJSON f, FromJSON f, KnownSymbol fieldName)
           => (o -> Maybe f)
-          -> JsonTree o p con fields d
-          -> JsonTree o (Maybe f -> p) con ((fieldName .= '( 'Nullable, f, 'Z, f, '[])) ': fields) ('S d)
+          -> JsonTree o p con fields
+          -> JsonTree o (Maybe f -> p) con ((fieldName .= '( 'Nullable, f, f, '[])) ': fields)
 
-getNameAndConstructor :: JsonTree o p con fields d -> (String, con)
-getNameAndConstructor (EmptyObj c n) = (n, c)
+getNameAndConstructor :: JsonTree o p con fields -> (String, con)
+getNameAndConstructor (Obj c n) = (n, c)
 getNameAndConstructor (SubObj _ _ r) = getNameAndConstructor r
 getNameAndConstructor (Optional _ _ r) = getNameAndConstructor r
 getNameAndConstructor (Prim _ r) = getNameAndConstructor r
@@ -117,8 +117,8 @@ getNameAndConstructor (OptPrim _ r) = getNameAndConstructor r
 fromValue' :: SomeJsonTree o fields -> Value -> Parser o
 fromValue' (SomeJsonTree t) = fromValue t
 
-fromValue :: FromObject (Parser con, JsonTree o con con fields ('S d)) o
-           => JsonTree o con con fields ('S d) -> Value -> Parser o
+fromValue :: FromObject (Parser con, JsonTree o con con fields) o
+           => JsonTree o con con fields -> Value -> Parser o
 fromValue tree =
   let (name, con) = getNameAndConstructor tree
    in withObject name (fromObject (pure @Parser con, tree))
@@ -126,17 +126,16 @@ fromValue tree =
 class FromObject t o where
   fromObject :: t -> Object -> Parser o
 
-instance FromObject (Parser o, JsonTree o o con fields 'Z) o where
-  fromObject (p, EmptyObj _ _) _ = p
+instance FromObject (Parser o, JsonTree o o con fields) o where
+  fromObject (p, Obj _ _) _ = p
 
-instance ( FromObject (Parser p, JsonTree o p con rest d) o
-         , FromObject (Parser sp, JsonTree a sp sp sub sd) a
+instance ( FromObject (Parser p, JsonTree o p con rest) o
+         , FromObject (Parser sp, JsonTree a sp sp sub) a
          )
   => FromObject ( Parser (a -> p)
                 , JsonTree o (a -> p)
                              con
-                             ((fName .= '( 'NonNull, a, sd, sp, sub)) ': rest)
-                             ('S d)
+                             ((fName .= '( 'NonNull, a, sp, sub)) ': rest)
                 ) o where
   fromObject (p, SubObj _ subTree nxt) obj =
     fromObject (p <*> parser, nxt) obj
@@ -149,14 +148,13 @@ instance ( FromObject (Parser p, JsonTree o p con rest d) o
       where
         parser = obj .: T.pack (symbolVal (Proxy :: Proxy fName))
 
-instance ( FromObject (Parser p, JsonTree o p con rest d) o
-         , FromObject (Parser sp, JsonTree a sp sp sub sd) a
+instance ( FromObject (Parser p, JsonTree o p con rest) o
+         , FromObject (Parser sp, JsonTree a sp sp sub) a
          )
   => FromObject ( Parser (Maybe a -> p)
                 , JsonTree o (Maybe a -> p)
                              con
-                             ((fName .= '( 'Nullable, a, sd, sp, sub)) ': rest)
-                             ('S d)
+                             ((fName .= '( 'Nullable, a, sp, sub)) ': rest)
                 ) o where
   fromObject (p, Optional _ subTree nxt) obj =
     fromObject (p <*> parser, nxt) obj
@@ -173,7 +171,7 @@ instance ( FromObject (Parser p, JsonTree o p con rest d) o
 class GetFieldName f where
   getFieldName :: f -> T.Text
 
-instance KnownSymbol fieldName => GetFieldName (JsonTree o p con (fieldName .= v ': rest) d) where
+instance KnownSymbol fieldName => GetFieldName (JsonTree o p con (fieldName .= v ': rest)) where
   getFieldName _ = T.pack (symbolVal (Proxy :: Proxy fieldName))
 
 --------------------------------------------------------------------------------
@@ -183,8 +181,8 @@ instance KnownSymbol fieldName => GetFieldName (JsonTree o p con (fieldName .= v
 toValue' :: SomeJsonTree a fields -> a -> Value
 toValue' (SomeJsonTree t) = toValue t
 
-toObject :: JsonTree a p con fields d -> a -> Object
-toObject EmptyObj{} _ = mempty
+toObject :: JsonTree a p con fields -> a -> Object
+toObject Obj{} _ = mempty
 toObject t@(SubObj acc subTree rest) obj
   = getFieldName t .= Object (toObject subTree $ acc obj)
  <> toObject rest obj
@@ -198,7 +196,7 @@ toObject t@(Optional acc subTree rest) obj
   = getFieldName t .= toJSON (Object . toObject subTree <$> acc obj)
  <> toObject rest obj
 
-toValue :: JsonTree a p con fields d -> a -> Value
+toValue :: JsonTree a p con fields -> a -> Value
 toValue t = Object . toObject t
 
 --------------------------------------------------------------------------------
@@ -212,30 +210,27 @@ type key :->> lastKey = key :-> lastKey :-> ()
 type family TypeAtPath obj path :: Type where
   -- Final key matches, return the field's type
   TypeAtPath (JsonTree o p con
-                       ((fieldName .= '(nul, field, sd, sc, subFields)) ': rest)
-                       d
+                       ((fieldName .= '(nul, field, sc, subFields)) ': rest)
              )
              (fieldName :-> ())
     = ApNull nul field
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath (JsonTree o p con
-                       ((fieldName .= '(nul, field, sd, sc, subFields)) ': rest)
-                       d
+                       ((fieldName .= '(nul, field, sc, subFields)) ': rest)
              )
              (fieldName :-> nextKey)
-    = ApNull nul (TypeAtPath (JsonTree field sc sc subFields sd) nextKey)
+    = ApNull nul (TypeAtPath (JsonTree field sc sc subFields) nextKey)
 
   -- Key doesn't match, try the next field
   TypeAtPath (JsonTree o (x -> p) con
-                         ((fieldName .= '(nul, field, subFields, sd, sc)) ': rest)
-                         ('S d)
+                         ((fieldName .= '(nul, field, subFields, sc)) ': rest)
              )
              (key :-> nextKey)
-    = TypeAtPath (JsonTree o p con rest d) (key :-> nextKey)
+    = TypeAtPath (JsonTree o p con rest) (key :-> nextKey)
 
   -- No match for the key
-  TypeAtPath (JsonTree o p con '[] d) (key :-> path)
+  TypeAtPath (JsonTree o p con '[]) (key :-> path)
     = TypeError (Text "JSON key not present in "
             :<>: ShowType (RemoveMaybes o)
             :<>: Text ": \""

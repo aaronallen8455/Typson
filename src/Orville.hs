@@ -3,13 +3,14 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Orville
-  ( jsonPathFromSql
+  ( jsonPathSql
   , json
   ) where
 
-import           Control.Monad ((<=<))
-import           Data.Aeson (FromJSON, ToJSON, decodeStrict, encode)
+import           Control.Monad ((<=<), join)
+import           Data.Aeson (FromJSON, Result(Success), ToJSON, Value(Null), decodeStrict, encode, fromJSON)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Proxy (Proxy(..))
@@ -17,25 +18,29 @@ import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-import           JsonTree (CollapseMaybes, JsonTree, TypeAtPath, ReflectPath(..))
+import           JsonTree (CollapseMaybes, JTree, TypeAtPath, ReflectPath(..))
 
-jsonPathFromSql :: forall path o fields field con d.
-                   ( CollapseMaybes (TypeAtPath (JsonTree o con con fields d) path) ~ field
-                   , ReflectPath path
-                   , FromJSON field
-                   , ToJSON field
-                   )
-                => JsonTree o con con fields d
-                -> O.FieldDefinition o
-                -> O.FromSql field
-jsonPathFromSql _ fieldDef = O.fieldFromSql $ O.fieldOfType json path
+jsonPathSql :: forall path o con fields field.
+               ( CollapseMaybes (TypeAtPath (JTree o con fields) path) ~ field
+               , ReflectPath path
+               , FromJSON field
+               , ToJSON field
+               )
+            => JTree o con fields
+            -> O.FieldDefinition o
+            -> (String, O.FromSql field)
+jsonPathSql _ fieldDef = (sqlString, fromSql)
   where
     keys = reflectPath (Proxy :: Proxy path)
-    path = O.fieldName fieldDef <> " -> " <> T.unpack (buildPath keys)
+    path = T.pack (O.fieldName fieldDef) <> " -> " <> buildPath keys
     buildPath [a, b] = "'" <> a <> "' ->> '" <> b <> "'"
     buildPath [a] = "'" <> a <> "'"
     buildPath (a : rest) = "'" <> a <> "' -> " <> buildPath rest
     buildPath [] = "" -- TODO use non-empty list
+    sqlString = T.unpack $ path <> " AS " <> "\"" <> path <> "\""
+    fromSql = O.fieldFromSql
+            . O.fieldOfType json
+            $ T.unpack path
 
 json :: (ToJSON a, FromJSON a) => O.SqlType a
 json =
@@ -53,12 +58,17 @@ jsonToSql :: ToJSON a => a -> HDBC.SqlValue
 jsonToSql = HDBC.SqlByteString . BSL.toStrict . encode
 
 jsonFromSql :: FromJSON a => HDBC.SqlValue -> Maybe a
-jsonFromSql = decodeStrict <=< byteStringFromSql
+jsonFromSql = handleResult . fromJSON
+          <=< valueFromSql
+  where
+    handleResult (Success a) = Just a
+    handleResult _           = Nothing
 
-byteStringFromSql :: HDBC.SqlValue -> Maybe BS8.ByteString
-byteStringFromSql sql =
+valueFromSql :: HDBC.SqlValue -> Maybe Value
+valueFromSql sql =
   case sql of
-    HDBC.SqlByteString bytes -> Just bytes
-    HDBC.SqlString string -> Just $ BS8.pack string
+    HDBC.SqlByteString bytes -> decodeStrict bytes
+    HDBC.SqlString string -> decodeStrict $ BS8.pack string
+    HDBC.SqlNull -> Just Null
     _ -> Nothing
 
