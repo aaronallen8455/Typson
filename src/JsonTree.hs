@@ -11,10 +11,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 module JsonTree
-  ( SomeJsonTree
-  , JsonTree(..)
+  ( JsonTree(..)
   , CollapseMaybes
   , TypeAtPath
   , ReflectPath(..)
@@ -26,7 +24,6 @@ module JsonTree
   , Nullability(..)
   , toValue
   , fromValue
-  , obj
   , JTree
   ) where
 
@@ -56,20 +53,7 @@ type fieldName .== a = fieldName .= '( 'NonNull, a, a, '[])
 
 data Nat = Z | S Nat
 
-type JTree o f con = JsonTree o con con f
-
-data SomeJsonTree (o :: Type) (fields :: [Type]) where
-  SomeJsonTree :: FromObject (Parser con, JsonTree o con con fields) o
-               => JsonTree o con con fields
-               -> SomeJsonTree o fields
-
--- Smart constructors (useless)
-obj :: FromObject (Parser p, JsonTree o p p fields) o
-    => con
-    -> String
-    -> (JsonTree o o con '[] -> JsonTree o p p fields)
-    -> SomeJsonTree o fields
-obj con name fields = SomeJsonTree . fields $ Obj con name
+type JTree o con f = JsonTree o con con f
 
 -- | Used to construct both a JSON mapping and a type level schema
 -- of that object's fields
@@ -114,11 +98,8 @@ getNameAndConstructor (OptPrim _ r) = getNameAndConstructor r
 -- FromJSON
 --------------------------------------------------------------------------------
 
-fromValue' :: SomeJsonTree o fields -> Value -> Parser o
-fromValue' (SomeJsonTree t) = fromValue t
-
-fromValue :: FromObject (Parser con, JsonTree o con con fields) o
-           => JsonTree o con con fields -> Value -> Parser o
+fromValue :: FromObject (Parser con, JTree o con fields) o
+           => JTree o con fields -> Value -> Parser o
 fromValue tree =
   let (name, con) = getNameAndConstructor tree
    in withObject name (fromObject (pure @Parser con, tree))
@@ -178,25 +159,22 @@ instance KnownSymbol fieldName => GetFieldName (JsonTree o p con (fieldName .= v
 -- ToJSON
 --------------------------------------------------------------------------------
 
-toValue' :: SomeJsonTree a fields -> a -> Value
-toValue' (SomeJsonTree t) = toValue t
-
 toObject :: JsonTree a p con fields -> a -> Object
 toObject Obj{} _ = mempty
 toObject t@(SubObj acc subTree rest) obj
   = getFieldName t .= Object (toObject subTree $ acc obj)
  <> toObject rest obj
 toObject t@(Prim acc rest) obj
-  = getFieldName t .= (toJSON $ acc obj)
+  = getFieldName t .= toJSON (acc obj)
  <> toObject rest obj
 toObject t@(OptPrim acc rest) obj
-  = getFieldName t .= (toJSON $ acc obj)
+  = getFieldName t .= toJSON (acc obj)
  <> toObject rest obj
 toObject t@(Optional acc subTree rest) obj
   = getFieldName t .= toJSON (Object . toObject subTree <$> acc obj)
  <> toObject rest obj
 
-toValue :: JsonTree a p con fields -> a -> Value
+toValue :: JTree a con fields -> a -> Value
 toValue t = Object . toObject t
 
 --------------------------------------------------------------------------------
@@ -251,10 +229,6 @@ type family RemoveMaybes a :: Type where
 typeAtPath :: forall path obj. obj -> Proxy (CollapseMaybes (TypeAtPath obj path))
 typeAtPath _ = Proxy
 
---------------------------------------------------------------------------------
--- Get value at path
---------------------------------------------------------------------------------
-
 class ReflectPath f where
   reflectPath :: Proxy f -> [T.Text]
 
@@ -264,6 +238,10 @@ instance ReflectPath () where
 instance (KnownSymbol key, ReflectPath path) => ReflectPath (key :-> path) where
   reflectPath _ = T.pack (symbolVal (Proxy :: Proxy key))
                 : reflectPath (Proxy :: Proxy path)
+
+--------------------------------------------------------------------------------
+-- Get value at path
+--------------------------------------------------------------------------------
 
 atPath :: forall path obj. (ReflectPath path, FromJSON (CollapseMaybes (TypeAtPath obj path)))
        => Value -> obj -> Maybe (CollapseMaybes (TypeAtPath obj path))

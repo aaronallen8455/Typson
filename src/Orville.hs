@@ -7,6 +7,7 @@
 module Orville
   ( jsonPathSql
   , json
+  , JsonSqlParts(..)
   ) where
 
 import           Control.Monad ((<=<), join)
@@ -20,6 +21,13 @@ import qualified Database.Orville.PostgreSQL as O
 
 import           JsonTree (CollapseMaybes, JTree, TypeAtPath, ReflectPath(..))
 
+data JsonSqlParts field =
+  JsonSqlParts
+    { selectorString :: String
+    , queryPath      :: String
+    , deserializer   :: O.FromSql field
+    }
+
 jsonPathSql :: forall path o con fields field.
                ( CollapseMaybes (TypeAtPath (JTree o con fields) path) ~ field
                , ReflectPath path
@@ -28,8 +36,13 @@ jsonPathSql :: forall path o con fields field.
                )
             => JTree o con fields
             -> O.FieldDefinition o
-            -> (String, O.FromSql field)
-jsonPathSql _ fieldDef = (sqlString, fromSql)
+            -> JsonSqlParts field
+jsonPathSql _ fieldDef =
+  JsonSqlParts
+    { selectorString = selector
+    , queryPath      = T.unpack path
+    , deserializer   = fromSql
+    }
   where
     keys = reflectPath (Proxy :: Proxy path)
     path = T.pack (O.fieldName fieldDef) <> " -> " <> buildPath keys
@@ -37,7 +50,7 @@ jsonPathSql _ fieldDef = (sqlString, fromSql)
     buildPath [a] = "'" <> a <> "'"
     buildPath (a : rest) = "'" <> a <> "' -> " <> buildPath rest
     buildPath [] = "" -- TODO use non-empty list
-    sqlString = T.unpack $ path <> " AS " <> "\"" <> path <> "\""
+    selector = T.unpack $ path <> " AS " <> "\"" <> path <> "\""
     fromSql = O.fieldFromSql
             . O.fieldOfType json
             $ T.unpack path

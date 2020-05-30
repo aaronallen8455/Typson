@@ -13,8 +13,8 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           System.Environment (lookupEnv)
 
-import           JsonTree (type (:->), type (:->>))
-import           Orville (jsonPathSql)
+import           JsonTree ((:->), (:->>))
+import           Orville (jsonPathSql, JsonSqlParts(..))
 import           TestEntity (Entity(..), entityTable, graphField)
 import           TestGraph (graphGen, bazJ)
 
@@ -43,7 +43,11 @@ generateData = do
 runQueries :: O.MonadOrville conn m
            => m [Maybe Int]
 runQueries = do
-  let (selector, fromSql) = jsonPathSql @("baz2" :-> "bar2" :->> "foo2") bazJ graphField
+  let (JsonSqlParts selector _ fromSql)
+        = jsonPathSql @("baz2" :-> "bar2" :->> "foo2") bazJ graphField
+
       sql = "SELECT " <> selector <> " FROM entity"
+
   Raw.selectSql sql [] fromSql
 
+ids = id : [id]
