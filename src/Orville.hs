@@ -19,7 +19,8 @@ import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-import           JsonTree (CollapseMaybes, JTree, TypeAtPath, ReflectPath(..))
+import           JsonTreeIndexed (ObjectSYM, FieldSYM)
+import           Pathing (CollapseMaybes, ReflectPath(..), TypeAtPath)
 
 data JsonSqlParts field =
   JsonSqlParts
@@ -28,13 +29,13 @@ data JsonSqlParts field =
     , deserializer   :: O.FromSql field
     }
 
-jsonPathSql :: forall path o con fields field.
-               ( CollapseMaybes (TypeAtPath (JTree o con fields) path) ~ field
+jsonPathSql :: forall path o con tree field repr.
+               ( CollapseMaybes (TypeAtPath o tree path) ~ field
                , ReflectPath path
                , FromJSON field
                , ToJSON field
                )
-            => JTree o con fields
+            => repr tree o
             -> O.FieldDefinition o
             -> JsonSqlParts field
 jsonPathSql _ fieldDef =
