@@ -18,6 +18,8 @@ import           Orville (jsonPathSql, JsonSqlParts(..))
 import           TestEntity (Entity(..), entityTable, graphField)
 import           TestGraph (graphGen, bazJ)
 
+import           JsonTreeIndexed
+
 main :: IO ()
 main = do
   Just connString <- lookupEnv "CONN_STRING"

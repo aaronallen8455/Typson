@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ded72505e5992e809678b9ac95ea193726490cb95bad51edf18954175a302187
+-- hash: 23aaf6f389d52f555b642313c500dea9f005ae1fdf2eec95c4bdcadf4fa9f00f
 
 name:           OrvilleJSON
 version:        0.1.0.0
@@ -29,6 +29,7 @@ executable OrvilleJSON-exe
   main-is: Main.hs
   other-modules:
       JsonTree
+      JsonTreeIndexed
       Orville
       TestEntity
       TestGraph
