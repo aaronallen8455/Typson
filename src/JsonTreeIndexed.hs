@@ -4,9 +4,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-module JsonTreeIndexed
-  ( FieldSYM
-  ) where
+module JsonTreeIndexed where
 
 import           Data.Aeson (FromJSON, ToJSON, (.=), (.:))
 import qualified Data.Aeson.Types as Aeson
@@ -18,6 +16,8 @@ import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 data JsonTree key typ
   = TreeField key Nullability typ [JsonTree key typ]
 
+type Tree = [JsonTree Symbol Type]
+
 data Nullability
   = Nullable
   | NonNullable
@@ -25,8 +25,28 @@ data Nullability
 class ObjectSYM repr where
   object :: String -> IFreeAp (Field repr o) t o -> repr t o
 
+newtype ObjectEncoder (t :: Tree) o =
+  ObjectEncoder { unObjectEncoder :: o -> Aeson.Value }
+
+newtype ObjectDecoder (t :: Tree) o =
+  ObjectDecoder { unObjectDecoder :: Aeson.Value -> Aeson.Parser o }
+
+newtype ObjectTree (t :: Tree) o =
+  ObjectTree { getObjectTree :: Proxy t }
+
+instance ObjectSYM ObjectEncoder where
+  object _ fields = ObjectEncoder $ \o ->
+    Aeson.Object $ runApp_ (`unFieldEncoder` o) fields
+
+instance ObjectSYM ObjectDecoder where
+  object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
+    runApp (`unFieldDecoder` obj) fields
+
+instance ObjectSYM ObjectTree where
+  object _ _ = ObjectTree Proxy
+
 class FieldSYM repr where
-  --data Field repr :: Type -> JsonTreeNode Symbol Type -> Type -> Type
+  data Field repr :: Type -> [JsonTree Symbol Type] -> Type -> Type
 
   prim :: forall key obj tree field.
           ( FromJSON field
@@ -36,7 +56,7 @@ class FieldSYM repr where
           )
        => Proxy key
        -> (obj -> field)
-       -> repr obj tree field
+       -> Field repr obj tree field
 
   subObj :: forall key obj tree subTree field.
             ( KnownSymbol key
@@ -44,8 +64,8 @@ class FieldSYM repr where
             )
          => Proxy key
          -> (obj -> field)
-         -> IFreeAp (repr field) subTree field
-         -> repr obj tree field
+         -> repr subTree field
+         -> Field repr obj tree field
 
 data IFreeAp f (t :: [JsonTree Symbol Type]) (a :: Type) where
   Pure :: a -> IFreeAp f '[] a
@@ -56,27 +76,26 @@ infixl 3 `Ap`
 
 data IProxy (o :: Type) (i :: [JsonTree Symbol Type]) (a :: Type) = IProxy
 
-instance FieldSYM IProxy where
-  prim _ _ = IProxy
-  subObj _ _ _ = IProxy
+instance FieldSYM ObjectTree where
+  data Field ObjectTree o t a = FieldProxy
+  prim _ _ = FieldProxy
+  subObj _ _ _ = FieldProxy
 
-newtype FieldEncoder (o :: Type) (t :: [JsonTree Symbol Type]) (a :: Type) =
-  FieldEncoder { unFieldEncoder :: o -> Aeson.Object }
-
-instance FieldSYM FieldEncoder where
+instance FieldSYM ObjectEncoder where
+  newtype Field ObjectEncoder o t a =
+    FieldEncoder { unFieldEncoder :: o -> Aeson.Object }
   prim key acc = FieldEncoder $ \o -> T.pack (symbolVal key) .= acc o
-  subObj key acc (FieldEncoder so) =
+  subObj key acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal key) .= so (acc o)
 
-newtype FieldDecoder (o :: Type) (t :: [JsonTree Symbol Type]) (a :: Type) =
-  FieldDecoder { unFieldDecoder :: Aeson.Object -> Aeson.Parser a }
-
-instance FieldSYM FieldDecoder where
+instance FieldSYM ObjectDecoder where
+  newtype Field ObjectDecoder o t a =
+    FieldDecoder { unFieldDecoder :: Aeson.Object -> Aeson.Parser a }
   prim key _ = FieldDecoder $ \obj ->
     obj .: T.pack (symbolVal key)
-  subObj key _ (FieldDecoder d) = FieldDecoder $ \obj -> do
+  subObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     so <- obj .: T.pack (symbolVal key)
-    d so
+    d (Aeson.Object so)
 
 runApp_ :: Monoid m => (forall a t. f t a -> m) -> IFreeAp f t a -> m
 runApp_ f (Pure _) = mempty
@@ -86,18 +105,6 @@ runApp :: Applicative g => (forall a t. f t a -> g a) -> IFreeAp f t a -> g a
 runApp _ (Pure a) = pure a
 runApp f (Ap p c) = runApp f p <*> f c
 
-fromValue :: IFreeAp (FieldDecoder a) t a
-          -> String
-          -> Aeson.Value
-          -> Aeson.Parser a
-fromValue decoder objName = Aeson.withObject objName $ \obj ->
-  runApp (`unFieldDecoder` obj) decoder
-
-toValue :: IFreeAp (FieldEncoder a) t a
-        -> a
-        -> Aeson.Value
-toValue encoder o = Aeson.Object $ runApp_ (`unFieldEncoder` o) encoder
-
 data Test =
   Test
     { one :: Bool
@@ -105,8 +112,9 @@ data Test =
     , three :: Int
     }
 
-test :: FieldSYM repr => IFreeAp (repr Test) TestTree Test
-test = Pure Test
+test :: (ObjectSYM repr, FieldSYM repr) => repr TestTree Test
+test = object "Test"
+     $ Pure Test
   `Ap` prim (Proxy :: Proxy "one") one
   `Ap` prim (Proxy :: Proxy "two") two
   `Ap` prim (Proxy :: Proxy "three") three
@@ -116,10 +124,10 @@ type TestTree = '[ 'TreeField "three" 'NonNullable Int '[],
                    'TreeField "one" 'NonNullable Bool '[]]
 
 instance FromJSON Test where
-  parseJSON = fromValue test "Test"
+  parseJSON = unObjectDecoder test
 
 instance ToJSON Test where
-  toJSON = toValue test
+  toJSON = unObjectEncoder test
 
 data Test2 =
   Test2
@@ -127,8 +135,9 @@ data Test2 =
     , t2b :: Bool
     }
 
-test2 :: FieldSYM repr => IFreeAp (repr Test2) Test2Tree Test2
-test2 = Pure Test2
+test2 :: (ObjectSYM repr, FieldSYM repr) => repr Test2Tree Test2
+test2 = object "Test2"
+      $ Pure Test2
    `Ap` subObj (Proxy :: Proxy "t2a") t2a test
    `Ap` prim (Proxy :: Proxy "t2b") t2b
 
