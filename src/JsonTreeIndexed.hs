@@ -7,7 +7,7 @@ module JsonTreeIndexed
   ( Tree
   , JsonTree
   , Node(..)
-  , Nullability(..)
+  , Quantity(..)
   , ObjectSYM(..)
   , FieldSYM(..)
   , encodeObject
@@ -32,11 +32,12 @@ import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 type Tree = [Node]
 
 data Node
-  = Node Symbol Nullability Type Tree
+  = Node Symbol Quantity Type Tree
 
-data Nullability
-  = Nullable
-  | NonNullable
+data Quantity
+  = List
+  | Singleton
+  | Nullable
 
 --------------------------------------------------------------------------------
 -- Final-tagless Symantics for Object Construction
@@ -51,7 +52,7 @@ class FieldSYM repr where
   prim :: ( FromJSON field
           , ToJSON field
           , KnownSymbol key
-          , tree ~ '[ 'Node key 'NonNullable field '[]]
+          , tree ~ '[ 'Node key 'Singleton field '[]]
           )
        => proxy key
        -> (obj -> field)
@@ -67,7 +68,7 @@ class FieldSYM repr where
           -> Field repr obj tree (Maybe field)
 
   subObj :: ( KnownSymbol key
-            , tree ~ '[ 'Node key 'NonNullable field subTree]
+            , tree ~ '[ 'Node key 'Singleton field subTree]
             )
          => proxy key
          -> (obj -> field)
@@ -81,6 +82,14 @@ class FieldSYM repr where
             -> (obj -> Maybe field)
             -> repr subTree field
             -> Field repr obj tree (Maybe field)
+
+  subObjList :: ( KnownSymbol key
+                , tree ~ '[ 'Node key 'List field subTree]
+                )
+             => proxy key
+             -> (obj -> [field])
+             -> repr subTree field
+             -> Field repr obj tree [field]
 
 type JsonTree t a = forall repr. (ObjectSYM repr, FieldSYM repr) => repr t a
 
@@ -119,6 +128,7 @@ instance FieldSYM ObjectTree where
   optPrim _ _ = FieldProxy
   subObj _ _ _ = FieldProxy
   optSubObj _ _ _ = FieldProxy
+  subObjList _ _ _ = FieldProxy
 
 instance FieldSYM ObjectEncoder where
   newtype Field ObjectEncoder o t a =
@@ -128,6 +138,8 @@ instance FieldSYM ObjectEncoder where
   subObj key acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal key) .= so (acc o)
   optSubObj key acc (ObjectEncoder so) =
+    FieldEncoder $ \o -> T.pack (symbolVal key) .= (so <$> acc o)
+  subObjList key acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal key) .= (so <$> acc o)
 
 instance FieldSYM ObjectDecoder where
@@ -143,6 +155,9 @@ instance FieldSYM ObjectDecoder where
   optSubObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal key)
     traverse d mbSo
+  subObjList key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    so <- obj .: T.pack (symbolVal key)
+    traverse d so
 
 --------------------------------------------------------------------------------
 -- Free Indexed Applicative
@@ -153,7 +168,6 @@ data IFreeAp f (t :: Tree) (a :: Type) where
   Ap   :: IFreeAp f t (a -> b)
        -> f '[st] a
        -> IFreeAp f (st ': t) b
-infixl 3 `Ap`
 
 (<<$>) :: (a -> b) -> f '[st] a -> IFreeAp f '[st] b
 f <<$> i = Pure f `Ap` i

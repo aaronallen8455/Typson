@@ -20,7 +20,7 @@ import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
 import           JsonTreeIndexed (ObjectSYM, FieldSYM)
-import           Pathing (CollapseMaybes, ReflectPath(..), TypeAtPath)
+import           Pathing (ReflectPath(..), TypeAtPath, sqlPath)
 
 data JsonSqlParts field =
   JsonSqlParts
@@ -30,7 +30,7 @@ data JsonSqlParts field =
     }
 
 jsonPathSql :: forall path o con tree field repr.
-               ( CollapseMaybes (TypeAtPath o tree path) ~ field
+               ( TypeAtPath o tree path ~ field
                , ReflectPath path
                , FromJSON field
                , ToJSON field
@@ -41,20 +41,15 @@ jsonPathSql :: forall path o con tree field repr.
 jsonPathSql _ fieldDef =
   JsonSqlParts
     { selectorString = selector
-    , queryPath      = T.unpack path
+    , queryPath      = path
     , deserializer   = fromSql
     }
   where
-    keys = reflectPath (Proxy :: Proxy path)
-    path = T.pack (O.fieldName fieldDef) <> " -> " <> buildPath keys
-    buildPath [a, b] = "'" <> a <> "' ->> '" <> b <> "'"
-    buildPath [a] = "'" <> a <> "'"
-    buildPath (a : rest) = "'" <> a <> "' -> " <> buildPath rest
-    buildPath [] = "" -- TODO use non-empty list
-    selector = T.unpack $ path <> " AS " <> "\"" <> path <> "\""
+    path = O.fieldName fieldDef <> " -> " <> sqlPath (Proxy :: Proxy path)
+    selector = path <> " AS " <> "\"" <> path <> "\""
     fromSql = O.fieldFromSql
             . O.fieldOfType json
-            $ T.unpack path
+            $ path
 
 json :: (ToJSON a, FromJSON a) => O.SqlType a
 json =
