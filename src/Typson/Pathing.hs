@@ -6,22 +6,21 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Pathing
+module Typson.Pathing
   ( ReflectPath(..)
   , TypeAtPath
   , typeAtPath
   , sqlPath
-  , (:->)
-  , (:->>)
-  , Idx
+  , type (:->)
+  , type (:->>)
+  , type Idx
   ) where
 
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy(..))
-import qualified Data.Text as T
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           JsonTreeIndexed (Node(..), ObjectSYM, Quantity(..), Tree)
+import           Typson.JsonTree (Node(..), ObjectSYM, Quantity(..), Tree)
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -90,6 +89,15 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
              (key :-> nextKey)
     = TypeAtPath obj rest (key :-> nextKey)
 
+  -- No match for key with list index
+  TypeAtPath obj '[] (Idx key idx :-> nextKey)
+    = TypeError (Text "JSON key not present in "
+            :<>: ShowType obj
+            :<>: Text ": \""
+            :<>: Text key
+            :<>: Text "\""
+                )
+
   -- No match for the key
   TypeAtPath obj '[] (key :-> path)
     = TypeError (Text "JSON key not present in "
@@ -141,7 +149,7 @@ instance (KnownSymbol key, KnownNat idx, ReflectPath path)
 sqlPath :: ReflectPath path => proxy path -> String
 sqlPath = buildPath . reflectPath
   where
-    buildPath [a, b] = a <> " ->> " <> b
+    buildPath [a, b] = a <> " -> " <> b
     buildPath [a] = a
     buildPath (a : rest) = a <> " -> " <> buildPath rest
     buildPath [] = "" -- TODO could use non-empty list

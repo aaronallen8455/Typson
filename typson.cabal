@@ -1,14 +1,14 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 23aaf6f389d52f555b642313c500dea9f005ae1fdf2eec95c4bdcadf4fa9f00f
+-- hash: 6197d48fd1d596cbbba889106062bfccad6494f4db28fa833dbd12ed8c4eea60
 
-name:           OrvilleJSON
+name:           typson
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/OrvilleJSON#readme>
+description:    Type safe JSON SQL with bidirectional parsing.
 homepage:       https://github.com/aaronallen8455/OrvilleJSON#readme
 bug-reports:    https://github.com/aaronallen8455/OrvilleJSON/issues
 author:         Aaron Allen
@@ -25,17 +25,31 @@ source-repository head
   type: git
   location: https://github.com/aaronallen8455/OrvilleJSON
 
-executable OrvilleJSON-exe
+library
+  exposed-modules:
+      Typson
+      Typson.JsonTree
+      Typson.Pathing
+  other-modules:
+      Paths_typson
+  hs-source-dirs:
+      src
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , text
+  default-language: Haskell2010
+
+executable example-exe
   main-is: Main.hs
   other-modules:
-      JsonTree
-      JsonTreeIndexed
       Orville
       TestEntity
       TestGraph
-      Paths_OrvilleJSON
+      Paths_typson
   hs-source-dirs:
-      src
+      example
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       HDBC
@@ -46,5 +60,5 @@ executable OrvilleJSON-exe
     , hedgehog
     , orville-postgresql
     , text
-    , unordered-containers
+    , typson
   default-language: Haskell2010

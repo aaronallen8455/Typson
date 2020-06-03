@@ -19,8 +19,7 @@ import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-import           JsonTreeIndexed (ObjectSYM, FieldSYM)
-import           Pathing (ReflectPath(..), TypeAtPath, sqlPath)
+import           Typson (ObjectSYM, FieldSYM, ReflectPath(..), TypeAtPath, sqlPath)
 
 data JsonSqlParts field =
   JsonSqlParts

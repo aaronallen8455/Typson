@@ -3,11 +3,11 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-module JsonTreeIndexed
+module Typson.JsonTree
   ( Tree
   , JsonTree
-  , Node(..)
-  , Quantity(..)
+  , type Node(..)
+  , type Quantity(..)
   , ObjectSYM(..)
   , FieldSYM(..)
   , encodeObject

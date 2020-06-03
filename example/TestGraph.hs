@@ -22,7 +22,7 @@ import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
 
-import           JsonTreeIndexed ((<<$>), (<<*>), FieldSYM(..), JsonTree, ObjectSYM(..), decodeObject, encodeObject, key)
+import           Typson ((<<$>), (<<*>), FieldSYM(..), JsonTree, ObjectSYM(..), decodeObject, encodeObject, key)
 
 data Foo =
   Foo
