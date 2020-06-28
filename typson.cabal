@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6197d48fd1d596cbbba889106062bfccad6494f4db28fa833dbd12ed8c4eea60
+-- hash: 4a53676b0b701c4ee40508fe96d2cc4267e4ee214487cc0e81aa6b99e22cd28d
 
 name:           typson
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Typson
       Typson.JsonTree
+      Typson.Lens
       Typson.Pathing
   other-modules:
       Paths_typson
@@ -38,6 +39,7 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , microlens
     , text
   default-language: Haskell2010
 
@@ -58,6 +60,7 @@ executable example-exe
     , base >=4.7 && <5
     , bytestring
     , hedgehog
+    , microlens
     , orville-postgresql
     , text
     , typson

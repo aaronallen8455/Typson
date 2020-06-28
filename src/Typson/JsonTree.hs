@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-} -- for the custom type error
 module Typson.JsonTree
   ( Tree
   , JsonTree
@@ -16,14 +17,16 @@ module Typson.JsonTree
   , key
   , (<<$>)
   , (<<*>)
+  , runAp
+  , runAp_
   ) where
 
 import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON)
 import qualified Data.Aeson.Types as Aeson
-import           Data.Kind (Type)
+import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Text as T
-import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 --------------------------------------------------------------------------------
 -- Type-level JSON Tree Representation
@@ -44,7 +47,8 @@ data Quantity
 --------------------------------------------------------------------------------
 
 class ObjectSYM (repr :: Tree -> Type -> Type) where
-  object :: String -> IFreeAp (Field repr o) t o -> repr t o
+  object :: NoDuplicateKeys o t
+         => String -> IFreeAp (Field repr o) t o -> repr t o
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -113,11 +117,11 @@ newtype ObjectTree (t :: Tree) o =
 
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
-    Aeson.Object $ runApp_ (`unFieldEncoder` o) fields
+    Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
 
 instance ObjectSYM ObjectDecoder where
   object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
-    runApp (`unFieldDecoder` obj) fields
+    runAp (`unFieldDecoder` obj) fields
 
 instance ObjectSYM ObjectTree where
   object _ _ = ObjectTree TreeProxy
@@ -160,6 +164,26 @@ instance FieldSYM ObjectDecoder where
     traverse d so
 
 --------------------------------------------------------------------------------
+-- No Duplicate Keys Constraint
+--------------------------------------------------------------------------------
+
+type family NoDuplicateKeys (obj :: Type) (tree :: Tree) :: Constraint where
+  NoDuplicateKeys obj ('Node key q ty subTree ': rest)
+    = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
+  NoDuplicateKeys obj '[] = ()
+
+type family KeyNotPresent (key :: Symbol) (obj :: Type) (tree :: Tree) :: Constraint where
+  KeyNotPresent key obj ('Node key q ty subTree ': rest)
+    = TypeError (Text "Duplicate JSON key \""
+            :<>: Text key
+            :<>: Text "\" in object "
+            :<>: ShowType obj
+                )
+  KeyNotPresent key obj ('Node notKey q ty subTree ': rest)
+    = KeyNotPresent key obj rest
+  KeyNotPresent key obj '[] = ()
+
+--------------------------------------------------------------------------------
 -- Free Indexed Applicative
 --------------------------------------------------------------------------------
 
@@ -177,11 +201,11 @@ infixl 4 <<$>
 (<<*>) = Ap
 infixl 4 <<*>
 
-runApp_ :: Monoid m => (forall a t. f t a -> m) -> IFreeAp f t a -> m
-runApp_ _ (Pure _) = mempty
-runApp_ f (Ap p c) = runApp_ f p <> f c
+runAp_ :: Monoid m => (forall a t. f t a -> m) -> IFreeAp f t a -> m
+runAp_ _ (Pure _) = mempty
+runAp_ f (Ap p c) = runAp_ f p <> f c
 
-runApp :: Applicative g => (forall a t. f t a -> g a) -> IFreeAp f t a -> g a
-runApp _ (Pure a) = pure a
-runApp f (Ap p c) = runApp f p <*> f c
+runAp :: Applicative g => (forall a t. f t a -> g a) -> IFreeAp f t a -> g a
+runAp _ (Pure a) = pure a
+runAp f (Ap p c) = runAp f p <*> f c
 

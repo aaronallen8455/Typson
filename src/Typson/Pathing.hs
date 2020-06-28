@@ -153,3 +153,4 @@ sqlPath = buildPath . reflectPath
     buildPath [a] = a
     buildPath (a : rest) = a <> " -> " <> buildPath rest
     buildPath [] = "" -- TODO could use non-empty list
+
