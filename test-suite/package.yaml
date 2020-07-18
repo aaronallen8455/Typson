@@ -1,0 +1,43 @@
+name:                test-suite
+version:             0.1.0.0
+github:              "aaronallen8455/test-suite"
+license:             BSD3
+author:              "Aaron Allen"
+maintainer:          "aaronallen8455@gmail.com"
+copyright:           "2020 Aaron Allen"
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/aaronallen8455/test-suite#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+tests:
+  spec:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - HDBC
+    - HDBC-postgresql
+    - HUnit
+    - aeson
+    - bytestring
+    - hedgehog
+    - microlens
+    - orville-postgresql
+    - resource-pool
+    - tasty
+    - tasty-hedgehog
+    - tasty-hunit
+    - typson
+    - typson-orville

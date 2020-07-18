@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Orville
+module Typson.Orville
   ( jsonPathSql
   , json
   , JsonSqlParts(..)

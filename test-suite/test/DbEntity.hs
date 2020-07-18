@@ -1,4 +1,4 @@
-module TestEntity
+module DbEntity
   ( Entity(..)
   , EntityKey
   , entityTable
@@ -10,8 +10,8 @@ import           Data.Int (Int32)
 
 import qualified Database.Orville.PostgreSQL as O
 
-import           Orville (json)
-import           TestGraph (Baz)
+import           Types
+import           Typson.Orville (json)
 
 data Entity key =
   Entity

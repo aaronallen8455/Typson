@@ -1,6 +1,6 @@
-name:                typson
+name:                typson-orville
 version:             0.1.0.0
-github:              "aaronallen8455/OrvilleJSON"
+github:              "aaronallen8455/typson-orville"
 license:             BSD3
 author:              "Aaron Allen"
 maintainer:          "aaronallen8455@gmail.com"
@@ -17,35 +17,17 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Type safe JSON SQL with bidirectional parsing.
+description:         Query JSON fields in a type-safe manner.
 
 dependencies:
 - base >= 4.7 && < 5
 - aeson
+- bytestring
+- orville-postgresql
+- HDBC
 - text
-- microlens
+- typson
 
 library:
   source-dirs: src
-  ghc-options:
-  - -threaded
-  - -rtsopts
-  - -with-rtsopts=-N
-
-# executables:
-#   example-exe:
-#     main: Main.hs
-#     source-dirs: example
-#     ghc-options:
-#     - -threaded
-#     - -rtsopts
-#     - -with-rtsopts=-N
-#     dependencies:
-#     - HDBC
-#     - HDBC-postgresql
-#     - bytestring
-#     - hedgehog
-#     - orville-postgresql
-#     - typson
-#     - typson-orville
 

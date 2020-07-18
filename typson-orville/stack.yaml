@@ -30,9 +30,6 @@ resolver: lts-16.5
 #   - wai
 packages:
 - .
-- typson-orville
-- test-suite
-- example
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
@@ -42,12 +39,7 @@ packages:
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
-extra-deps:
-- git: git@github.com:flipstone/orville.git
-  commit: efbd3fe1dca19cc07fe12b3824f1af5df46cbdf1
-  subdirs:
-    - orville-postgresql
-- HDBC-postgresql-2.3.2.7
+# extra-deps: []
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -60,7 +52,7 @@ extra-deps:
 #
 # Require a specific version of stack, using version ranges
 # require-stack-version: -any # Default
-# require-stack-version: ">=2.1"
+# require-stack-version: ">=2.3"
 #
 # Override the architecture used by stack, especially useful on Windows
 # arch: i386

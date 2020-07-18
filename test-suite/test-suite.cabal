@@ -1,0 +1,51 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 75bc2db034010708db6b67b96bae936429e7638d87ad693e70e7b96de2c08988
+
+name:           test-suite
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/test-suite#readme>
+homepage:       https://github.com/aaronallen8455/test-suite#readme
+bug-reports:    https://github.com/aaronallen8455/test-suite/issues
+author:         Aaron Allen
+maintainer:     aaronallen8455@gmail.com
+copyright:      2020 Aaron Allen
+license:        BSD3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/aaronallen8455/test-suite
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      DbEntity
+      Generators
+      Types
+      Paths_test_suite
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HDBC
+    , HDBC-postgresql
+    , HUnit
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , hedgehog
+    , microlens
+    , orville-postgresql
+    , resource-pool
+    , tasty
+    , tasty-hedgehog
+    , tasty-hunit
+    , typson
+    , typson-orville
+  default-language: Haskell2010

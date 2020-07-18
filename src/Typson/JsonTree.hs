@@ -21,7 +21,7 @@ module Typson.JsonTree
   , runAp_
   ) where
 
-import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON)
+import           Data.Aeson ((.!=), (.:), (.:?), (.=), FromJSON, ToJSON)
 import qualified Data.Aeson.Types as Aeson
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy(..))
@@ -71,6 +71,17 @@ class FieldSYM repr where
           -> (obj -> Maybe field)
           -> Field repr obj tree (Maybe field)
 
+  optPrimDef :: ( FromJSON field
+                , ToJSON field
+                , KnownSymbol key
+                , tree ~ '[ 'Node key 'Singleton field '[]]
+                )
+             => proxy key
+             -> (obj -> field)
+             -> field
+             -> Field repr obj tree field
+  optPrimDef p getter _ = prim p getter
+
   subObj :: ( KnownSymbol key
             , tree ~ '[ 'Node key 'Singleton field subTree]
             )
@@ -86,6 +97,16 @@ class FieldSYM repr where
             -> (obj -> Maybe field)
             -> repr subTree field
             -> Field repr obj tree (Maybe field)
+
+  optSubObjDef :: ( KnownSymbol key
+                  , tree ~ '[ 'Node key 'Singleton field subTree]
+                  )
+               => proxy key
+               -> (obj -> field)
+               -> field
+               -> repr subTree field
+               -> Field repr obj tree field
+  optSubObjDef p getter _ sub = subObj p getter sub
 
   subObjList :: ( KnownSymbol key
                 , tree ~ '[ 'Node key 'List field subTree]
@@ -153,12 +174,17 @@ instance FieldSYM ObjectDecoder where
     obj .: T.pack (symbolVal key)
   optPrim key _ = FieldDecoder $ \obj ->
     obj .:? T.pack (symbolVal key)
+  optPrimDef key _ def = FieldDecoder $ \obj ->
+    obj .:? T.pack (symbolVal key) .!= def
   subObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     so <- obj .: T.pack (symbolVal key)
     d so
   optSubObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal key)
     traverse d mbSo
+  optSubObjDef key _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    mbSo <- obj .:? T.pack (symbolVal key)
+    maybe (pure def) d mbSo
   subObjList key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     so <- obj .: T.pack (symbolVal key)
     traverse d so
