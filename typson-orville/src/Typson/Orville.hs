@@ -10,16 +10,15 @@ module Typson.Orville
   , JsonSqlParts(..)
   ) where
 
-import           Control.Monad ((<=<), join)
+import           Control.Monad ((<=<))
 import           Data.Aeson (FromJSON, Result(Success), ToJSON, Value(Null), decodeStrict, encode, fromJSON)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Proxy (Proxy(..))
-import qualified Data.Text as T
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-import           Typson (ObjectSYM, FieldSYM, ReflectPath(..), TypeAtPath, sqlPath)
+import           Typson (ReflectPath(..), TypeAtPath, sqlPath)
 
 data JsonSqlParts field =
   JsonSqlParts
@@ -28,7 +27,7 @@ data JsonSqlParts field =
     , deserializer   :: O.FromSql field
     }
 
-jsonPathSql :: forall path o con tree field repr.
+jsonPathSql :: forall path o tree field repr.
                ( TypeAtPath o tree path ~ field
                , ReflectPath path
                , FromJSON field

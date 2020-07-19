@@ -19,7 +19,7 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (FieldSYM(..), Node(..), ObjectSYM(..), Quantity(..), Tree, runAp, runAp_)
+import           Typson.JsonTree (FieldSYM(..), Node(..), ObjectSYM(..), Multiplicity(..), Tree, runAp, runAp_)
 import           Typson.Pathing (TypeAtPath, (:->))
 
 --------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ instance forall queryKey queryType. FieldSYM (Getter queryKey queryType) where
   newtype Field (Getter queryKey queryType) obj tree a =
     Get { unGet :: KnownSymbol queryKey => Proxy queryKey -> First (obj -> queryType) }
 
-  prim :: forall field key tree obj repr proxy.
+  prim :: forall field key tree obj proxy.
           ( FromJSON field
           , ToJSON field
           , KnownSymbol key
@@ -76,7 +76,7 @@ instance forall queryKey queryType. FieldSYM (Getter queryKey queryType) where
       Nothing -> Nothing
       Just Refl -> Just getter
 
-  optPrim :: forall field key tree obj repr proxy.
+  optPrim :: forall field key tree obj proxy.
              ( FromJSON field
              , ToJSON field
              , KnownSymbol key
@@ -156,7 +156,7 @@ instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
                  -> fieldType
         }
 
-  prim :: forall field key tree obj repr proxy.
+  prim :: forall field key tree obj proxy.
           ( FromJSON field
           , ToJSON field
           , KnownSymbol key
@@ -170,7 +170,7 @@ instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
       Nothing -> getter obj
       Just Refl -> value
 
-  optPrim :: forall field key tree obj repr proxy.
+  optPrim :: forall field key tree obj proxy.
              ( FromJSON field
              , ToJSON field
              , KnownSymbol key
@@ -228,7 +228,8 @@ instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
 --------------------------------------------------------------------------------
 
 -- | If the field identifiers are the same, we assume that the field types
--- are also equal, however, this is not statically enforced.
+-- are also equal, however, this is not enforced by the type system. The
+-- TypeAtPath type family is relied upon for this purpose.
 sameField :: forall fieldA fieldB typeA typeB.
              (KnownSymbol fieldA, KnownSymbol fieldB)
           => Proxy '(fieldA ,typeA)

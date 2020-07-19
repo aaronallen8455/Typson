@@ -26,6 +26,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - HDBC
     - HDBC-postgresql

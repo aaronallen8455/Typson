@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 75bc2db034010708db6b67b96bae936429e7638d87ad693e70e7b96de2c08988
+-- hash: 61b99e63d1f16c9b3206caf116327896ec03e912f111f760d0f148c12aa1d01b
 
 name:           test-suite
 version:        0.1.0.0
@@ -27,11 +27,12 @@ test-suite spec
   other-modules:
       DbEntity
       Generators
+      Orville.Spec
       Types
       Paths_test_suite
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
       HDBC
     , HDBC-postgresql

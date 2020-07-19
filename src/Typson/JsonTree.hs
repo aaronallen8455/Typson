@@ -8,7 +8,7 @@ module Typson.JsonTree
   ( Tree
   , JsonTree
   , type Node(..)
-  , type Quantity(..)
+  , type Multiplicity(..)
   , ObjectSYM(..)
   , FieldSYM(..)
   , encodeObject
@@ -35,9 +35,9 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError,
 type Tree = [Node]
 
 data Node
-  = Node Symbol Quantity Type Tree
+  = Node Symbol Multiplicity Type Tree
 
-data Quantity
+data Multiplicity
   = List
   | Singleton
   | Nullable
@@ -158,35 +158,35 @@ instance FieldSYM ObjectTree where
 instance FieldSYM ObjectEncoder where
   newtype Field ObjectEncoder o t a =
     FieldEncoder { unFieldEncoder :: o -> Aeson.Object }
-  prim key acc = FieldEncoder $ \o -> T.pack (symbolVal key) .= acc o
-  optPrim key acc = FieldEncoder $ \o -> T.pack (symbolVal key) .= acc o
-  subObj key acc (ObjectEncoder so) =
-    FieldEncoder $ \o -> T.pack (symbolVal key) .= so (acc o)
-  optSubObj key acc (ObjectEncoder so) =
-    FieldEncoder $ \o -> T.pack (symbolVal key) .= (so <$> acc o)
-  subObjList key acc (ObjectEncoder so) =
-    FieldEncoder $ \o -> T.pack (symbolVal key) .= (so <$> acc o)
+  prim ky acc = FieldEncoder $ \o -> T.pack (symbolVal ky) .= acc o
+  optPrim ky acc = FieldEncoder $ \o -> T.pack (symbolVal ky) .= acc o
+  subObj ky acc (ObjectEncoder so) =
+    FieldEncoder $ \o -> T.pack (symbolVal ky) .= so (acc o)
+  optSubObj ky acc (ObjectEncoder so) =
+    FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
+  subObjList ky acc (ObjectEncoder so) =
+    FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
 
 instance FieldSYM ObjectDecoder where
   newtype Field ObjectDecoder o t a =
     FieldDecoder { unFieldDecoder :: Aeson.Object -> Aeson.Parser a }
-  prim key _ = FieldDecoder $ \obj ->
-    obj .: T.pack (symbolVal key)
-  optPrim key _ = FieldDecoder $ \obj ->
-    obj .:? T.pack (symbolVal key)
-  optPrimDef key _ def = FieldDecoder $ \obj ->
-    obj .:? T.pack (symbolVal key) .!= def
-  subObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
-    so <- obj .: T.pack (symbolVal key)
+  prim ky _ = FieldDecoder $ \obj ->
+    obj .: T.pack (symbolVal ky)
+  optPrim ky _ = FieldDecoder $ \obj ->
+    obj .:? T.pack (symbolVal ky)
+  optPrimDef ky _ def = FieldDecoder $ \obj ->
+    obj .:? T.pack (symbolVal ky) .!= def
+  subObj ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    so <- obj .: T.pack (symbolVal ky)
     d so
-  optSubObj key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
-    mbSo <- obj .:? T.pack (symbolVal key)
+  optSubObj ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    mbSo <- obj .:? T.pack (symbolVal ky)
     traverse d mbSo
-  optSubObjDef key _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
-    mbSo <- obj .:? T.pack (symbolVal key)
+  optSubObjDef ky _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    mbSo <- obj .:? T.pack (symbolVal ky)
     maybe (pure def) d mbSo
-  subObjList key _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
-    so <- obj .: T.pack (symbolVal key)
+  subObjList ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+    so <- obj .: T.pack (symbolVal ky)
     traverse d so
 
 --------------------------------------------------------------------------------
@@ -200,10 +200,10 @@ type family NoDuplicateKeys (obj :: Type) (tree :: Tree) :: Constraint where
 
 type family KeyNotPresent (key :: Symbol) (obj :: Type) (tree :: Tree) :: Constraint where
   KeyNotPresent key obj ('Node key q ty subTree ': rest)
-    = TypeError (Text "Duplicate JSON key \""
-            :<>: Text key
-            :<>: Text "\" in object "
-            :<>: ShowType obj
+    = TypeError ('Text "Duplicate JSON key \""
+            ':<>: 'Text key
+            ':<>: 'Text "\" in object "
+            ':<>: 'ShowType obj
                 )
   KeyNotPresent key obj ('Node notKey q ty subTree ': rest)
     = KeyNotPresent key obj rest
@@ -227,11 +227,11 @@ infixl 4 <<$>
 (<<*>) = Ap
 infixl 4 <<*>
 
-runAp_ :: Monoid m => (forall a t. f t a -> m) -> IFreeAp f t a -> m
+runAp_ :: Monoid m => (forall a' t'. f t' a' -> m) -> IFreeAp f t a -> m
 runAp_ _ (Pure _) = mempty
 runAp_ f (Ap p c) = runAp_ f p <> f c
 
-runAp :: Applicative g => (forall a t. f t a -> g a) -> IFreeAp f t a -> g a
+runAp :: Applicative g => (forall a' t'. f t' a' -> g a') -> IFreeAp f t a -> g a
 runAp _ (Pure a) = pure a
 runAp f (Ap p c) = runAp f p <*> f c
 

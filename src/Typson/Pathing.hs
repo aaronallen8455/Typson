@@ -20,7 +20,7 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Node(..), ObjectSYM, Quantity(..), Tree)
+import           Typson.JsonTree (Node(..), Multiplicity(..), Tree)
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -71,10 +71,10 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
   TypeAtPath obj
              ('Node key 'List field subTree ': rest)
              (key :-> nextKey)
-    = TypeError (Text "Invalid JSON path: you must provide an index for list field \""
-            :<>: Text key
-            :<>: Text "\" of object "
-            :<>: ShowType obj
+    = TypeError ('Text "Invalid JSON path: you must provide an index for list field \""
+           ':<>: 'Text key
+           ':<>: 'Text "\" of object "
+           ':<>: 'ShowType obj
                 )
 
   -- Key matches, descend into sub-object preserving Maybe
@@ -91,37 +91,37 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
 
   -- No match for key with list index
   TypeAtPath obj '[] (Idx key idx :-> nextKey)
-    = TypeError (Text "JSON key not present in "
-            :<>: ShowType obj
-            :<>: Text ": \""
-            :<>: Text key
-            :<>: Text "\""
+    = TypeError ('Text "JSON key not present in "
+           ':<>: 'ShowType obj
+           ':<>: 'Text ": \""
+           ':<>: 'Text key
+           ':<>: 'Text "\""
                 )
 
   -- No match for the key
   TypeAtPath obj '[] (key :-> path)
-    = TypeError (Text "JSON key not present in "
-            :<>: ShowType obj
-            :<>: Text ": \""
-            :<>: Text key
-            :<>: Text "\"" -- this is requiring UndecidableInstances
+    = TypeError ('Text "JSON key not present in "
+           ':<>: 'ShowType obj
+           ':<>: 'Text ": \""
+           ':<>: 'Text key
+           ':<>: 'Text "\"" -- this is requiring UndecidableInstances
                 )
 
 --------------------------------------------------------------------------------
 -- Utilities
 --------------------------------------------------------------------------------
 
-type family ApResult (q :: Quantity) (b :: Type) :: Type where
-  ApResult List a = [a]
+type family ApResult (q :: Multiplicity) (b :: Type) :: Type where
+  ApResult 'List a = [a]
   ApResult q a = ApQuantity q a
 
 -- Using this requires UndecidableInstances
-type family ApQuantity (q :: Quantity) (b :: Type) :: Type where
-  ApQuantity Nullable (Maybe a) = Maybe a
-  ApQuantity Nullable a = Maybe a
-  ApQuantity Singleton a = a
-  ApQuantity List (Maybe a) = Maybe a
-  ApQuantity List a = Maybe a
+type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
+  ApQuantity 'Nullable (Maybe a) = Maybe a
+  ApQuantity 'Nullable a = Maybe a
+  ApQuantity 'Singleton a = a
+  ApQuantity 'List (Maybe a) = Maybe a
+  ApQuantity 'List a = Maybe a
 
 --------------------------------------------------------------------------------
 -- Path Reflection

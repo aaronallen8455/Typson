@@ -16,8 +16,7 @@ module TestGraph
   , graphGen
   ) where
 
-import           Data.Aeson ((.:), (.:?), FromJSON(..), ToJSON(..), withObject)
-import           Data.Function ((&))
+import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
