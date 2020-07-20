@@ -26,6 +26,7 @@ import qualified Data.Aeson.Types as Aeson
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Text as T
+import           Data.Type.Bool (If)
 import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 --------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ data Multiplicity
 --------------------------------------------------------------------------------
 
 class ObjectSYM (repr :: Tree -> Type -> Type) where
-  object :: NoDuplicateKeys o t
+  object :: (NonRecursive '[o] t, NoDuplicateKeys o t)
          => String -> IFreeAp (Field repr o) t o -> repr t o
 
 class FieldSYM repr where
@@ -208,6 +209,25 @@ type family KeyNotPresent (key :: Symbol) (obj :: Type) (tree :: Tree) :: Constr
   KeyNotPresent key obj ('Node notKey q ty subTree ': rest)
     = KeyNotPresent key obj rest
   KeyNotPresent key obj '[] = ()
+
+--------------------------------------------------------------------------------
+-- No Recursion Constraint
+--------------------------------------------------------------------------------
+
+-- TODO Is a type level Set available?
+type family NonRecursive (visited :: [Type]) (tree :: Tree) :: Constraint where
+  NonRecursive visited ('Node key q ty subTree ': rest)
+    = If (Elem ty visited)
+         (TypeError ('Text "Recursive JSON types are not allowed."))
+         (NonRecursive visited rest, NonRecursive (ty ': visited) subTree)
+  NonRecursive visited '[] = ()
+
+type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
+  Elem needle (needle ': rest) = 'True
+  Elem needle (head ': rest) = Elem needle rest
+  Elem needle '[] = 'False
+
+-- TODO can the two constraints be melded?
 
 --------------------------------------------------------------------------------
 -- Free Indexed Applicative
