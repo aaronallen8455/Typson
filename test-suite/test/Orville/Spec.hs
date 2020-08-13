@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications, DataKinds, TypeOperators, RankNTypes, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, DataKinds, RankNTypes, ScopedTypeVariables #-}
 module Orville.Spec
   ( orvilleTestTree
   ) where
@@ -16,16 +16,15 @@ import           Test.Tasty.HUnit
 import qualified Database.Orville.PostgreSQL as O
 import qualified Database.Orville.PostgreSQL.Connection as O
 import qualified Database.Orville.PostgreSQL.Raw as Raw
-import           DbEntity (Entity(..), entityTable, graphField)
+import           Orville.DbEntity (Entity(..), entityTable, graphField)
 import           Generators (bazGen)
-import           Types (Bar, Baz, barJ, bazJ, fooJ)
+import           Types
 import           Typson
 import           Typson.Orville (JsonSqlParts(..), jsonPathSql)
 
 orvilleTestTree :: TestTree
-orvilleTestTree = withRunDb $ \runDb -> do
+orvilleTestTree = withRunDb $ \runDb ->
   testCase "JSON Queries" $ do
-    prepDB runDb
     graphs <- runDb generateData
 
     r1 <- runDb (runQuery basicQuery1)
@@ -105,31 +104,31 @@ runQuery (JsonSqlParts selector _ fromSql) =
 --------------------------------------------------------------------------------
 
 basicQuery1 :: JsonSqlParts Double
-basicQuery1 = jsonPathSql @("baz1" :->> "bar3") (getObjectTree bazJ) graphField
+basicQuery1 = jsonPathSql basicPath1 (getObjectTree bazJ) graphField
 
 basicQuery2 :: JsonSqlParts String
-basicQuery2 = jsonPathSql @("baz1" :-> "bar1" :->> "foo3") (getObjectTree bazJ) graphField
+basicQuery2 = jsonPathSql basicPath2 (getObjectTree bazJ) graphField
 
 basicQuery3 :: JsonSqlParts Bar
-basicQuery3 = jsonPathSql @("baz1" :-> ()) (getObjectTree bazJ) graphField
+basicQuery3 = jsonPathSql basicPath3 (getObjectTree bazJ) graphField
 
 optionalQuery1 :: JsonSqlParts (Maybe Double)
-optionalQuery1 = jsonPathSql @("baz1" :-> "bar2" :->> "foo4") (getObjectTree bazJ) graphField
+optionalQuery1 = jsonPathSql optionalPath1 (getObjectTree bazJ) graphField
 
 optionalQuery2 :: JsonSqlParts (Maybe Int)
-optionalQuery2 = jsonPathSql @("baz1" :-> "bar2" :->> "foo2") (getObjectTree bazJ) graphField
+optionalQuery2 = jsonPathSql optionalPath2 (getObjectTree bazJ) graphField
 
 optionalQuery3 :: JsonSqlParts (Maybe Int)
-optionalQuery3 = jsonPathSql @("baz2" :-> "bar1" :->> "foo2") (getObjectTree bazJ) graphField
+optionalQuery3 = jsonPathSql optionalPath3 (getObjectTree bazJ) graphField
 
 listIdxQuery1 :: JsonSqlParts (Maybe Bool)
-listIdxQuery1 = jsonPathSql @("baz1" :-> "bar1" :->> "foo1" `Idx` 2) (getObjectTree bazJ) graphField
+listIdxQuery1 = jsonPathSql listIdxPath1 (getObjectTree bazJ) graphField
 
 listIdxQuery2 :: JsonSqlParts (Maybe String)
-listIdxQuery2 = jsonPathSql @("baz3" `Idx` 0 :->> "foo3") (getObjectTree bazJ) graphField
+listIdxQuery2 = jsonPathSql listIdxPath2 (getObjectTree bazJ) graphField
 
 listIdxQuery3 :: JsonSqlParts (Maybe Bool)
-listIdxQuery3 = jsonPathSql @("baz3" `Idx` 0 :->> "foo1" `Idx` 1) (getObjectTree bazJ) graphField
+listIdxQuery3 = jsonPathSql listIdxPath3 (getObjectTree bazJ) graphField
 
 --------------------------------------------------------------------------------
 -- DB Utils
@@ -139,22 +138,25 @@ type DbRunner = forall b. O.OrvilleT O.Connection IO b -> IO b
 
 withRunDb :: (DbRunner -> TestTree)
           -> TestTree
-withRunDb mkTree = withDb $ \ioPool -> mkTree $ \action -> do
-  pool <- ioPool
-  let orvilleEnv = O.newOrvilleEnv pool
+withRunDb mkTree = withDb $ \ioEnv -> mkTree $ \action -> do
+  orvilleEnv <- ioEnv
   O.runOrville action orvilleEnv
 
-withDb :: (IO (O.Pool O.Connection) -> TestTree) -> TestTree
-withDb = withResource acquirePool destroyAllResources
+withDb :: (IO (O.OrvilleEnv O.Connection) -> TestTree) -> TestTree
+withDb = withResource acquirePool (destroyAllResources . O.ormEnvPool)
 
-acquirePool :: IO (O.Pool O.Connection)
+acquirePool :: IO (O.OrvilleEnv O.Connection)
 acquirePool = do
   Just connString <- lookupEnv "CONN_STRING"
-  O.createConnectionPool 1 60 10 connString
+  pool <- O.createConnectionPool 1 60 10 connString
+  let orvilleEnv = O.newOrvilleEnv pool
 
-prepDB :: DbRunner -> IO ()
-prepDB runDb = do
-  runDb $ do
+  O.runOrville resetDb orvilleEnv
+
+  pure orvilleEnv
+
+resetDb :: O.MonadOrville conn m => m ()
+resetDb = do
     -- clear the entity table
     O.migrateSchema [O.DropTable "entity"]
     O.migrateSchema [O.Table entityTable]

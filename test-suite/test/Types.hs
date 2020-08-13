@@ -1,9 +1,10 @@
-{-# LANGUAGE DataKinds, TypeApplications #-}
+{-# LANGUAGE DataKinds, TypeApplications, TypeOperators #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 module Types where
 
 import           Data.Aeson hiding (object)
+import           Data.Proxy (Proxy(..))
 
 import           Typson
 
@@ -79,4 +80,31 @@ instance ToJSON Baz where
 
 instance FromJSON Baz where
   parseJSON = decodeObject bazJ
+
+basicPath1 :: Proxy ("baz1" :->> "bar3")
+basicPath1 = Proxy
+
+basicPath2 :: Proxy ("baz1" :-> "bar1" :->> "foo3")
+basicPath2 = Proxy
+
+basicPath3 :: Proxy ("baz1" :-> ())
+basicPath3 = Proxy
+
+optionalPath1 :: Proxy ("baz1" :-> "bar2" :->> "foo4")
+optionalPath1 = Proxy
+
+optionalPath2 :: Proxy ("baz1" :-> "bar2" :->> "foo2")
+optionalPath2 = Proxy
+
+optionalPath3 :: Proxy ("baz2" :-> "bar1" :->> "foo2")
+optionalPath3 = Proxy
+
+listIdxPath1 :: Proxy ("baz1" :-> "bar1" :->> "foo1" `Idx` 2)
+listIdxPath1 = Proxy
+
+listIdxPath2 :: Proxy ("baz3" `Idx` 0 :->> "foo3")
+listIdxPath2 = Proxy
+
+listIdxPath3 :: Proxy ("baz3" `Idx` 0 :->> "foo1" `Idx` 1)
+listIdxPath3 = Proxy
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
@@ -11,6 +12,7 @@ module Typson.Pathing
   , TypeAtPath
   , typeAtPath
   , sqlPath
+  , PathComponent(..)
   , type (:->)
   , type (:->>)
   , type Idx
@@ -127,30 +129,35 @@ type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
 -- Path Reflection
 --------------------------------------------------------------------------------
 
+data PathComponent
+  = Key String
+  | Idx Integer
+
 class ReflectPath f where
-  reflectPath :: proxy f -> [String]
+  reflectPath :: proxy f -> [PathComponent]
 
 instance ReflectPath () where
   reflectPath _ = []
 
 instance (KnownSymbol key, ReflectPath path)
       => ReflectPath ((key :: Symbol) :-> path) where
-  reflectPath _ = "'" <> symbolVal (Proxy :: Proxy key) <> "'"
-                : reflectPath (Proxy :: Proxy path)
+  reflectPath _ = Key (symbolVal (Proxy @key))
+                : reflectPath (Proxy @path)
 
 instance (KnownSymbol key, KnownNat idx, ReflectPath path)
       => ReflectPath (Idx key idx :-> path) where
-  reflectPath _ = "'" <> symbolVal (Proxy :: Proxy key) <> "'"
-                : idxText
-                : reflectPath (Proxy :: Proxy path)
-    where
-      idxText = show $ natVal (Proxy :: Proxy idx)
+  reflectPath _ = Key (symbolVal (Proxy @key))
+                : Idx (natVal (Proxy @idx))
+                : reflectPath (Proxy @path)
 
+-- Reflect a path as a postgres SQL string
 sqlPath :: ReflectPath path => proxy path -> String
-sqlPath = buildPath . reflectPath
+sqlPath = buildPath . map pathToString . reflectPath
   where
     buildPath [a, b] = a <> " -> " <> b
     buildPath [a] = a
     buildPath (a : rest) = a <> " -> " <> buildPath rest
     buildPath [] = "" -- TODO could use non-empty list
 
+    pathToString (Key s) = "'" <> s <> "'"
+    pathToString (Idx i) = show i

@@ -5,6 +5,7 @@ module Main where
 
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Foldable (traverse_)
+import           Data.Proxy (Proxy(..))
 import qualified Database.Orville.PostgreSQL as O
 import qualified Database.Orville.PostgreSQL.Connection as O
 import qualified Database.Orville.PostgreSQL.Raw as Raw
@@ -44,7 +45,9 @@ runQueries :: O.MonadOrville conn m
            => m [Maybe String]
 runQueries = do
   let (JsonSqlParts selector _ fromSql)
-        = jsonPathSql @("baz3" `Idx` 1 :->> "foo3") (getObjectTree bazJ) graphField
+        = jsonPathSql (Proxy @("baz3" `Idx` 1 :->> "foo3"))
+                      (getObjectTree bazJ)
+                      graphField
 
       sql = "SELECT " <> selector <> " FROM entity"
 

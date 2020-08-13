@@ -1,9 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
 module Typson.Orville
   ( jsonPathSql
   , json
@@ -27,23 +23,23 @@ data JsonSqlParts field =
     , deserializer   :: O.FromSql field
     }
 
-jsonPathSql :: forall path o tree field repr.
-               ( TypeAtPath o tree path ~ field
+jsonPathSql :: ( TypeAtPath o tree path ~ field
                , ReflectPath path
-               , FromJSON field
+               , FromJSON field -- TODO json constraints needed?
                , ToJSON field
                )
-            => repr tree o
+            => proxy path
+            -> repr tree o
             -> O.FieldDefinition o
             -> JsonSqlParts field
-jsonPathSql _ fieldDef =
+jsonPathSql pathProxy _ fieldDef =
   JsonSqlParts
     { selectorString = selector
     , queryPath      = path
     , deserializer   = fromSql
     }
   where
-    path = O.fieldName fieldDef <> " -> " <> sqlPath (Proxy :: Proxy path)
+    path = O.fieldName fieldDef <> " -> " <> sqlPath pathProxy
     selector = path <> " AS " <> "\"" <> path <> "\""
     fromSql = O.fieldFromSql
             . O.fieldOfType json

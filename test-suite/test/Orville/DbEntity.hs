@@ -1,4 +1,4 @@
-module DbEntity
+module Orville.DbEntity
   ( Entity(..)
   , EntityKey
   , entityTable

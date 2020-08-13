@@ -32,6 +32,9 @@ tests:
     - HDBC-postgresql
     - HUnit
     - aeson
+    - beam-core
+    - beam-migrate
+    - beam-postgres
     - bytestring
     - hedgehog
     - microlens
@@ -41,4 +44,6 @@ tests:
     - tasty-hedgehog
     - tasty-hunit
     - typson
+    - typson-beam
     - typson-orville
+    - postgresql-simple

@@ -45,8 +45,8 @@ tests =
 
         let l :: Lens' Baz Double
             l = fieldLens (key @"baz1") bazJ
-                 . fieldLens (key @"bar4") barJ
-                 . fieldLens (key @"foo4") fooJ
+              . fieldLens (key @"bar4") barJ
+              . fieldLens (key @"foo4") fooJ
 
         -- You get back what you put in
         dbl === set l dbl baz ^. l
