@@ -9,12 +9,11 @@ import           Data.Proxy (Proxy(..))
 import qualified Database.Orville.PostgreSQL as O
 import qualified Database.Orville.PostgreSQL.Connection as O
 import qualified Database.Orville.PostgreSQL.Raw as Raw
-import qualified Database.Orville.PostgreSQL.Select as O
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           System.Environment (lookupEnv)
 
-import           Typson (getObjectTree, (:->), (:->>), Idx)
+import           Typson (getObjectTree, (:->>), Idx)
 import           Typson.Orville (jsonPathSql, JsonSqlParts(..))
 import           TestEntity (Entity(..), entityTable, graphField)
 import           TestGraph (graphGen, bazJ)

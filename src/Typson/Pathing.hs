@@ -4,7 +4,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Typson.Pathing
@@ -41,10 +40,10 @@ data Idx (key :: Symbol) (idx :: Nat) -- used to access element of a list
 -- Get the result type for a query at a given path
 --------------------------------------------------------------------------------
 
-typeAtPath :: forall path obj tree repr.
-              repr tree obj
+typeAtPath :: proxy path
+           -> repr tree obj
            -> Proxy (TypeAtPath obj tree path)
-typeAtPath _ = Proxy
+typeAtPath _ _ = Proxy
 
 type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
   -- Final key matches, return the field's type

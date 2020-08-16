@@ -229,7 +229,7 @@ instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
 
 -- | If the field identifiers are the same, we assume that the field types
 -- are also equal, however, this is not enforced by the type system. The
--- TypeAtPath type family is relied upon for this purpose.
+-- TypeAtPath type family is relied upon to enforce this invariant.
 sameField :: forall fieldA fieldB typeA typeB.
              (KnownSymbol fieldA, KnownSymbol fieldB)
           => Proxy '(fieldA ,typeA)

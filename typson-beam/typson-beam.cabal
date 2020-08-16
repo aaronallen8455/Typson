@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 543611f245fdffb4eb43d3a6d80caa4aa32a722b1943f850d230762e3eb3e2cd
+-- hash: 3649145bdd20f09848ec6fb1c31687dc84c1a54d5b287bbb195e8f08d1b521c4
 
 name:           typson-beam
 version:        0.1.0.0
@@ -27,7 +27,6 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
       Typson.Beam
   other-modules:
       Paths_typson_beam

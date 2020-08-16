@@ -243,7 +243,7 @@ data IFreeAp f (t :: Tree) (a :: Type) where
 f <<$> i = Pure f `Ap` i
 infixl 4 <<$>
 
-(<<*>) :: IFreeAp f t (a -> b) -> f '[st] a -> IFreeAp f (st : t) b
+(<<*>) :: IFreeAp f t (a -> b) -> f '[st] a -> IFreeAp f (st ': t) b
 (<<*>) = Ap
 infixl 4 <<*>
 
