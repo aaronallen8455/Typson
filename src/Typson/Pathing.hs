@@ -19,6 +19,8 @@ module Typson.Pathing
   ) where
 
 import           Data.Kind (Type)
+import           Data.List (intercalate)
+import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
@@ -134,31 +136,30 @@ data PathComponent
   | Idx Integer
 
 class ReflectPath f where
-  reflectPath :: proxy f -> [PathComponent]
+  reflectPath :: proxy f -> NE.NonEmpty PathComponent
 
--- TODO should be impossible to construct empty path
-instance ReflectPath () where
-  reflectPath _ = []
+instance KnownSymbol key => ReflectPath ((key :: Symbol) :-> ()) where
+  reflectPath _ = Key (symbolVal (Proxy @key)) NE.:| []
 
-instance (KnownSymbol key, ReflectPath path)
-      => ReflectPath ((key :: Symbol) :-> path) where
+instance (KnownSymbol key, KnownNat idx)
+      => ReflectPath (Idx key idx :-> ()) where
   reflectPath _ = Key (symbolVal (Proxy @key))
-                : reflectPath (Proxy @path)
+            NE.:| [Idx (natVal (Proxy @idx))]
 
-instance (KnownSymbol key, KnownNat idx, ReflectPath path)
-      => ReflectPath (Idx key idx :-> path) where
+instance (KnownSymbol key, ReflectPath (path :-> rest))
+      => ReflectPath ((key :: Symbol) :-> path :-> rest) where
   reflectPath _ = Key (symbolVal (Proxy @key))
-                : Idx (natVal (Proxy @idx))
-                : reflectPath (Proxy @path)
+            NE.<| reflectPath (Proxy @(path :-> rest))
+
+instance (KnownSymbol key, KnownNat idx, ReflectPath (path :-> rest))
+      => ReflectPath (Idx key idx :-> path :-> rest) where
+  reflectPath _ = Key (symbolVal (Proxy @key))
+            NE.<| Idx (natVal (Proxy @idx))
+            NE.<| reflectPath (Proxy @(path :-> rest))
 
 -- Reflect a path as a postgres SQL string
 sqlPath :: ReflectPath path => proxy path -> String
-sqlPath = buildPath . map pathToString . reflectPath
+sqlPath = intercalate " -> " . map pathToString . NE.toList . reflectPath
   where
-    buildPath [a, b] = a <> " -> " <> b
-    buildPath [a] = a
-    buildPath (a : rest) = a <> " -> " <> buildPath rest
-    buildPath [] = "" -- TODO could use non-empty list
-
     pathToString (Key s) = "'" <> s <> "'"
     pathToString (Idx i) = show i

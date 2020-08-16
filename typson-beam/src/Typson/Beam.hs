@@ -16,6 +16,7 @@ module Typson.Beam
 import qualified Data.Aeson as Aeson
 import           Data.Coerce (coerce)
 import           Data.List (foldl')
+import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
 import qualified Database.Beam as B
@@ -36,8 +37,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
          -> B.QGenExpr ctxt B.Postgres s (json field)
 jsonPath path _ input =
   case reflectPath path of
-    [] -> error "Should not have an empty path"
-    p:ps -> foldl' buildPath (buildPath input p) ps
+    p NE.:| ps -> foldl' buildPath (buildPath input p) ps
   where
     buildPath p (Key k) = p B.->$ fromString k
     buildPath p (Idx i) = p B.-># fromInteger i
