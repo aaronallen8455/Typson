@@ -24,75 +24,77 @@ import           Typson.Orville (JsonSqlParts(..), jsonPathSql)
 
 orvilleTestTree :: TestTree
 orvilleTestTree = withRunDb $ \runDb ->
-  testCase "JSON Queries" $ do
-    graphs <- runDb generateData
+  testGroup "Orville Tests"
+  [ testCase "JSON Queries" $ do
+      graphs <- runDb generateData
 
-    r1 <- runDb (runQuery basicQuery1)
-    let a1 = flip map graphs $ \g ->
-          g ^. fieldLens (key @"baz1") bazJ
-             . fieldLens (key @"bar3") barJ
-    assertEqual "Basic Query 1" (sort r1) (sort a1)
+      r1 <- runDb (runQuery basicQuery1)
+      let a1 = flip map graphs $ \g ->
+            g ^. fieldLens (key @"baz1") bazJ
+               . fieldLens (key @"bar3") barJ
+      assertEqual "Basic Query 1" (sort r1) (sort a1)
 
-    r2 <- runDb (runQuery basicQuery2)
-    let a2 = flip map graphs $ \g ->
-          g ^. fieldLens (key @"baz1") bazJ
-             . fieldLens (key @"bar1") barJ
-             . fieldLens (key @"foo3") fooJ
-    assertEqual "Basic Query 2" (sort r2) (sort a2)
+      r2 <- runDb (runQuery basicQuery2)
+      let a2 = flip map graphs $ \g ->
+            g ^. fieldLens (key @"baz1") bazJ
+               . fieldLens (key @"bar1") barJ
+               . fieldLens (key @"foo3") fooJ
+      assertEqual "Basic Query 2" (sort r2) (sort a2)
 
-    r3 <- runDb (runQuery basicQuery3)
-    let a3 = flip map graphs $ \g ->
-          g ^. fieldLens (key @"baz1") bazJ
-    assertEqual "Basic Query 3" (sort r3) (sort a3)
+      r3 <- runDb (runQuery basicQuery3)
+      let a3 = flip map graphs $ \g ->
+            g ^. fieldLens (key @"baz1") bazJ
+      assertEqual "Basic Query 3" (sort r3) (sort a3)
 
-    r4 <- runDb (runQuery optionalQuery1)
-    let a4 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz1") bazJ
-             . fieldLens (key @"bar2") barJ
-             . _Just
-             . fieldLens (key @"foo4") fooJ
-    assertEqual "Optional Query 1" (sort r4) (sort a4)
+      r4 <- runDb (runQuery optionalQuery1)
+      let a4 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz1") bazJ
+               . fieldLens (key @"bar2") barJ
+               . _Just
+               . fieldLens (key @"foo4") fooJ
+      assertEqual "Optional Query 1" (sort r4) (sort a4)
 
-    r5 <- runDb (runQuery optionalQuery2)
-    let a5 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz1") bazJ
-             . fieldLens (key @"bar2") barJ
-             . _Just
-             . fieldLens (key @"foo2") fooJ
-             . _Just
-    assertEqual "Optional Query 2" (sort r5) (sort a5)
+      r5 <- runDb (runQuery optionalQuery2)
+      let a5 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz1") bazJ
+               . fieldLens (key @"bar2") barJ
+               . _Just
+               . fieldLens (key @"foo2") fooJ
+               . _Just
+      assertEqual "Optional Query 2" (sort r5) (sort a5)
 
-    r6 <- runDb (runQuery optionalQuery3)
-    let a6 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz2") bazJ
-             . _Just
-             . fieldLens (key @"bar1") barJ
-             . fieldLens (key @"foo2") fooJ
-             . _Just
-    assertEqual "Optional Query 3" (sort r6) (sort a6)
+      r6 <- runDb (runQuery optionalQuery3)
+      let a6 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz2") bazJ
+               . _Just
+               . fieldLens (key @"bar1") barJ
+               . fieldLens (key @"foo2") fooJ
+               . _Just
+      assertEqual "Optional Query 3" (sort r6) (sort a6)
 
-    r7 <- runDb (runQuery listIdxQuery1)
-    let a7 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz1") bazJ
-             . fieldLens (key @"bar1") barJ
-             . fieldLens (key @"foo1") fooJ
-             . ix 2
-    assertEqual "List Idx Query 1" (sort r7) (sort a7)
+      r7 <- runDb (runQuery listIdxQuery1)
+      let a7 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz1") bazJ
+               . fieldLens (key @"bar1") barJ
+               . fieldLens (key @"foo1") fooJ
+               . ix 2
+      assertEqual "List Idx Query 1" (sort r7) (sort a7)
 
-    r8 <- runDb (runQuery listIdxQuery2)
-    let a8 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz3") bazJ
-             . ix 0
-             . fieldLens (key @"foo3") fooJ
-    assertEqual "List Idx Query 2" (sort r8) (sort a8)
+      r8 <- runDb (runQuery listIdxQuery2)
+      let a8 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz3") bazJ
+               . ix 0
+               . fieldLens (key @"foo3") fooJ
+      assertEqual "List Idx Query 2" (sort r8) (sort a8)
 
-    r9 <- runDb (runQuery listIdxQuery3)
-    let a9 = flip map graphs $ \g ->
-          g ^? fieldLens (key @"baz3") bazJ
-             . ix 0
-             . fieldLens (key @"foo1") fooJ
-             . ix 1
-    assertEqual "List Idx Quer 3" (sort r9) (sort a9)
+      r9 <- runDb (runQuery listIdxQuery3)
+      let a9 = flip map graphs $ \g ->
+            g ^? fieldLens (key @"baz3") bazJ
+               . ix 0
+               . fieldLens (key @"foo1") fooJ
+               . ix 1
+      assertEqual "List Idx Quer 3" (sort r9) (sort a9)
+  ]
 
 runQuery :: O.MonadOrville conn m => JsonSqlParts a -> m [a]
 runQuery (JsonSqlParts selector _ fromSql) =

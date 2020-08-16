@@ -7,8 +7,9 @@ import           Lens.Micro
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
-import           Orville.Spec (orvilleTestTree)
+import           Beam.Spec (beamTestTree)
 import           Generators (bazGen, fooGen)
+import           Orville.Spec (orvilleTestTree)
 import           Types (Baz, Foo, barJ, bazJ, fooJ)
 import           Typson
 
@@ -58,5 +59,6 @@ tests =
         set l dbl (set l dbl baz) === set l dbl baz
 
     , orvilleTestTree
+    , beamTestTree
     ]
 

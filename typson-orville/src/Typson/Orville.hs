@@ -10,7 +10,6 @@ import           Control.Monad ((<=<))
 import           Data.Aeson (FromJSON, Result(Success), ToJSON, Value(Null), decodeStrict, encode, fromJSON)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Proxy (Proxy(..))
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 

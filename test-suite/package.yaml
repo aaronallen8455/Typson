@@ -27,6 +27,9 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     - -Wall
+    - -Werror=missing-fields
+    - -Werror=incomplete-patterns
+
     dependencies:
     - HDBC
     - HDBC-postgresql

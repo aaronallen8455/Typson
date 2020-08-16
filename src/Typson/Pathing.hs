@@ -136,6 +136,7 @@ data PathComponent
 class ReflectPath f where
   reflectPath :: proxy f -> [PathComponent]
 
+-- TODO should be impossible to construct empty path
 instance ReflectPath () where
   reflectPath _ = []
 
