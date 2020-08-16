@@ -30,3 +30,31 @@ dependencies:
 library:
   source-dirs: src
 
+tests:
+  spec:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    - -Werror=missing-fields
+    - -Werror=incomplete-patterns
+
+    dependencies:
+    - HUnit
+    - aeson
+    - beam-core
+    - beam-migrate
+    - beam-postgres
+    - bytestring
+    - hedgehog
+    - microlens
+    - tasty
+    - tasty-hedgehog
+    - tasty-hunit
+    - typson
+    - typson-beam
+    - test-fixture
+    - postgresql-simple

@@ -1,10 +1,10 @@
-module Generators where
+module Typson.Test.Generators where
 
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
 
-import           Types
+import           Typson.Test.Types
 
 fooGen :: HH.Gen Foo
 fooGen =

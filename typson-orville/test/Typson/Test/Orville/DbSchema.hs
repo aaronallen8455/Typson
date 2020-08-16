@@ -1,4 +1,4 @@
-module Orville.DbEntity
+module Typson.Test.Orville.DbSchema
   ( Entity(..)
   , EntityKey
   , entityTable
@@ -10,8 +10,8 @@ import           Data.Int (Int32)
 
 import qualified Database.Orville.PostgreSQL as O
 
-import           Types
 import           Typson.Orville (json)
+import           Typson.Test.Types
 
 data Entity key =
   Entity

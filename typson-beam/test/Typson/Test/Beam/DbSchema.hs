@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveAnyClass #-}
-module Beam.Types
+module Typson.Test.Beam.DbSchema
   ( Db(..)
   , db
   , EntityT(..)
@@ -15,8 +15,8 @@ import qualified Database.Beam.Migrate as B
 import qualified Database.Beam.Backend.SQL.Types as B
 import           GHC.Generics (Generic)
 
-import           Types (Baz)
 import           Typson.Beam (JNullable, nullableJsonb)
+import           Typson.Test.Types (Baz)
 
 newtype Db entity
   = Db { _dbEntity :: entity (B.TableEntity EntityT) }

@@ -7,15 +7,12 @@ import           Lens.Micro
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
-import           Beam.Spec (beamTestTree)
-import           Generators (bazGen, fooGen)
-import           Orville.Spec (orvilleTestTree)
-import           Types (Baz, Foo, barJ, bazJ, fooJ)
 import           Typson
+import           Typson.Test.Generators (bazGen, fooGen)
+import           Typson.Test.Types (Baz, Foo, barJ, bazJ, fooJ)
 
 main :: IO ()
-main = do
-  defaultMain tests
+main = defaultMain tests
 
 tests :: TestTree
 tests =
@@ -57,8 +54,5 @@ tests =
 
         -- Setting twice is the same as setting once
         set l dbl (set l dbl baz) === set l dbl baz
-
-    , orvilleTestTree
-    , beamTestTree
     ]
 

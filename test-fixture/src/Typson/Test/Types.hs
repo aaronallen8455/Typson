@@ -1,12 +1,16 @@
 {-# LANGUAGE DataKinds, TypeApplications, TypeOperators #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-module Types where
+module Typson.Test.Types where
 
 import           Data.Aeson hiding (object)
 import           Data.Proxy (Proxy(..))
 
 import           Typson
+
+--------------------------------------------------------------------------------
+-- Graph
+--------------------------------------------------------------------------------
 
 data Foo =
   Foo
@@ -80,6 +84,10 @@ instance ToJSON Baz where
 
 instance FromJSON Baz where
   parseJSON = decodeObject bazJ
+
+--------------------------------------------------------------------------------
+-- Query Paths
+--------------------------------------------------------------------------------
 
 basicPath1 :: Proxy ("baz1" :->> "bar3")
 basicPath1 = Proxy

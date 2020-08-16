@@ -4,9 +4,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Beam.Spec
-  ( beamTestTree
-  ) where
 
 import qualified Data.ByteString.Char8 as BS
 import           Data.List (sort)
@@ -21,11 +18,14 @@ import           System.Environment (lookupEnv)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import           Beam.Types (Db(..), EntityT(..), createTableMigration, db)
-import           Generators
-import           Types
 import           Typson
 import           Typson.Beam
+import           Typson.Test.Beam.DbSchema (Db(..), EntityT(..), createTableMigration, db)
+import           Typson.Test.Generators
+import           Typson.Test.Types
+
+main :: IO ()
+main = defaultMain beamTestTree
 
 beamTestTree :: TestTree
 beamTestTree = withRunDb $ \runDb ->
@@ -55,7 +55,6 @@ beamTestTree = withRunDb $ \runDb ->
             g ^. fieldLens (key @"baz1") bazJ
       assertEqual "Basic Path 3" (sort r3) (sort a3)
 
-      -- TODO need some way to handle nulls
       r4 <- runDb . B.runSelectReturningList . B.select $
               jsonPath optionalPath1 (getObjectTree bazJ) <$> getAllGraphs
       let a4 = flip map graphs $ \g -> JNullable . B.PgJSONB $

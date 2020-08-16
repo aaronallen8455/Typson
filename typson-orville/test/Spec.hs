@@ -1,7 +1,4 @@
 {-# LANGUAGE TypeApplications, DataKinds, RankNTypes, ScopedTypeVariables #-}
-module Orville.Spec
-  ( orvilleTestTree
-  ) where
 
 import           Data.Foldable (traverse_)
 import           Data.List (sort)
@@ -16,11 +13,14 @@ import           Test.Tasty.HUnit
 import qualified Database.Orville.PostgreSQL as O
 import qualified Database.Orville.PostgreSQL.Connection as O
 import qualified Database.Orville.PostgreSQL.Raw as Raw
-import           Orville.DbEntity (Entity(..), entityTable, graphField)
-import           Generators (bazGen)
-import           Types
 import           Typson
 import           Typson.Orville (JsonSqlParts(..), jsonPathSql)
+import           Typson.Test.Generators (bazGen)
+import           Typson.Test.Types
+import           Typson.Test.Orville.DbSchema (Entity(..), entityTable, graphField)
+
+main :: IO ()
+main = defaultMain orvilleTestTree
 
 orvilleTestTree :: TestTree
 orvilleTestTree = withRunDb $ \runDb ->
@@ -159,9 +159,9 @@ acquirePool = do
 
 resetDb :: O.MonadOrville conn m => m ()
 resetDb = do
-    -- clear the entity table
-    O.migrateSchema [O.DropTable "entity"]
-    O.migrateSchema [O.Table entityTable]
+  -- clear the entity table
+  O.migrateSchema [O.DropTable "entity"]
+  O.migrateSchema [O.Table entityTable]
 
 generateData :: O.MonadOrville conn m
              => m [Baz]

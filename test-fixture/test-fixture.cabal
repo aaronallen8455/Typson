@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e2b32d87562436f0aace97d9b16ca569649ae2e25e928557f7b050dcb1e94118
+-- hash: 93bb99db801d697220706cd514c01678411db9633ab91ef3c5c70950b599de0d
 
-name:           test-suite
+name:           test-fixture
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/test-suite#readme>
-homepage:       https://github.com/aaronallen8455/test-suite#readme
-bug-reports:    https://github.com/aaronallen8455/test-suite/issues
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/test-fixture#readme>
+homepage:       https://github.com/aaronallen8455/test-fixture#readme
+bug-reports:    https://github.com/aaronallen8455/test-fixture/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -19,41 +19,41 @@ build-type:     Simple
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/test-suite
+  location: https://github.com/aaronallen8455/test-fixture
+
+library
+  exposed-modules:
+      Typson.Test.Generators
+      Typson.Test.Types
+  other-modules:
+      Paths_test_fixture
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , hedgehog
+    , typson
+  default-language: Haskell2010
 
 test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Beam.Spec
-      Beam.Types
-      Generators
-      Orville.DbEntity
-      Orville.Spec
-      Types
-      Paths_test_suite
+      Paths_test_fixture
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror=missing-fields -Werror=incomplete-patterns
   build-depends:
-      HDBC
-    , HDBC-postgresql
-    , HUnit
+      HUnit
     , aeson
     , base >=4.7 && <5
-    , beam-core
-    , beam-migrate
-    , beam-postgres
     , bytestring
     , hedgehog
     , microlens
-    , orville-postgresql
-    , postgresql-simple
-    , resource-pool
     , tasty
     , tasty-hedgehog
     , tasty-hunit
+    , test-fixture
     , typson
-    , typson-beam
-    , typson-orville
   default-language: Haskell2010

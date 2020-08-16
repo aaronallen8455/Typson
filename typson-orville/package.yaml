@@ -31,3 +31,31 @@ dependencies:
 library:
   source-dirs: src
 
+tests:
+  spec:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    - -Werror=missing-fields
+    - -Werror=incomplete-patterns
+
+    dependencies:
+    - HDBC
+    - HDBC-postgresql
+    - HUnit
+    - aeson
+    - bytestring
+    - hedgehog
+    - microlens
+    - orville-postgresql
+    - resource-pool
+    - tasty
+    - tasty-hedgehog
+    - tasty-hunit
+    - typson
+    - typson-orville
+    - test-fixture
