@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 89542743c661ec0305de24bbaa01b855c1c24c7dc2c4dc94c206887a51946e35
+-- hash: dd7145de3d42acea1454b55354b3cc25db03bc37ceb667a59e49a67e4d8599aa
 
 name:           typson-beam
 version:        0.1.0.0
@@ -34,8 +34,10 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , beam-core
     , beam-postgres
+    , postgresql-simple
     , typson
   default-language: Haskell2010
