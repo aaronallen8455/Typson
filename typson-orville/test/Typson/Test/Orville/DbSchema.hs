@@ -25,7 +25,7 @@ entityTable :: O.TableDefinition (Entity EntityKey) (Entity ()) EntityKey
 entityTable =
   O.mkTableDefinition $
   O.TableParams
-    { O.tblName = "entity"
+    { O.tblName = "orville-entity"
     , O.tblPrimaryKey = idField
     , O.tblMapper =
       Entity

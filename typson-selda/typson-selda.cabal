@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c83b40665ead1d667ec3bbb3e0e848344cb4131a1e635ce20445c8d526284bdc
+-- hash: 09b0b2302f6464314af7ab5c6260506ede9fc3289fa1dddcd5b4508c85fefa46
 
-name:           typson-beam
+name:           typson-selda
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson-beam#readme>
-homepage:       https://github.com/aaronallen8455/typson-beam#readme
-bug-reports:    https://github.com/aaronallen8455/typson-beam/issues
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson-selda#readme>
+homepage:       https://github.com/aaronallen8455/typson-selda#readme
+bug-reports:    https://github.com/aaronallen8455/typson-selda/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -23,49 +23,52 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/typson-beam
+  location: https://github.com/aaronallen8455/typson-selda
 
 library
   exposed-modules:
-      Typson.Beam
+      Typson.Selda
   other-modules:
-      Paths_typson_beam
+      Paths_typson_selda
   hs-source-dirs:
       src
   build-depends:
       aeson
     , base >=4.7 && <5
-    , beam-core
-    , beam-postgres
-    , postgresql-simple
+    , bytestring
+    , selda
+    , selda-json
+    , selda-postgresql
+    , text
     , typson
   default-language: Haskell2010
 
-test-suite spec
+test-suite typson-selda-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Typson.Test.Beam.DbSchema
-      Paths_typson_beam
+      Typson.Test.Selda.DbSchema
+      Paths_typson_selda
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror=missing-fields -Werror=incomplete-patterns
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       HUnit
     , aeson
     , base >=4.7 && <5
-    , beam-core
-    , beam-migrate
-    , beam-postgres
     , bytestring
     , exceptions
     , hedgehog
     , microlens
-    , postgresql-simple
+    , selda
+    , selda-json
+    , selda-postgresql
     , tasty
     , tasty-hedgehog
     , tasty-hunit
     , test-fixture
+    , text
     , typson
     , typson-beam
+    , typson-selda
   default-language: Haskell2010

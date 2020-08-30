@@ -98,7 +98,7 @@ orvilleTestTree = withRunDb $ \runDb ->
 
 runQuery :: O.MonadOrville conn m => JsonSqlParts a -> m [a]
 runQuery (JsonSqlParts selector _ fromSql) =
-  let sql = "SELECT " <> selector <> " FROM entity"
+  let sql = "SELECT " <> selector <> " FROM \"orville-entity\""
    in Raw.selectSql sql [] fromSql
 
 --------------------------------------------------------------------------------
@@ -160,7 +160,7 @@ acquirePool = do
 resetDb :: O.MonadOrville conn m => m ()
 resetDb = do
   -- clear the entity table
-  O.migrateSchema [O.DropTable "entity"]
+  O.migrateSchema [O.DropTable "orville-entity"]
   O.migrateSchema [O.Table entityTable]
 
 generateData :: O.MonadOrville conn m

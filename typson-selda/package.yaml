@@ -1,6 +1,6 @@
-name:                typson-beam
+name:                typson-selda
 version:             0.1.0.0
-github:              "aaronallen8455/typson-beam"
+github:              "aaronallen8455/typson-selda"
 license:             BSD3
 author:              "Aaron Allen"
 maintainer:          "aaronallen8455@gmail.com"
@@ -17,45 +17,44 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/aaronallen8455/typson-beam#readme>
+description:         Please see the README on GitHub at <https://github.com/aaronallen8455/typson-selda#readme>
 
 dependencies:
 - base >= 4.7 && < 5
-- aeson
-- beam-core
-- beam-postgres
-- postgresql-simple
+- bytestring
 - typson
+- selda
+- selda-postgresql
+- selda-json
+- text
+- aeson
 
 library:
   source-dirs: src
 
 tests:
-  spec:
+  typson-selda-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    - -Wall
-    - -Werror=missing-fields
-    - -Werror=incomplete-patterns
-
     dependencies:
     - HUnit
     - aeson
-    - beam-core
-    - beam-migrate
-    - beam-postgres
     - bytestring
     - exceptions
     - hedgehog
     - microlens
+    - selda
+    - selda-json
+    - selda-postgresql
     - tasty
     - tasty-hedgehog
     - tasty-hunit
+    - test-fixture
+    - test-fixture
     - typson
     - typson-beam
-    - test-fixture
-    - postgresql-simple
+    - typson-selda

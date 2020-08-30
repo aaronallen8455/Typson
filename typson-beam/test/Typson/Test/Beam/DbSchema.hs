@@ -20,10 +20,13 @@ import           Typson.Test.Types (Baz)
 
 newtype Db entity
   = Db { _dbEntity :: entity (B.TableEntity EntityT) }
-  deriving (Generic, B.Database B.Postgres)
+  deriving (Generic, B.Database be)
 
-db :: B.DatabaseSettings B.Postgres Db
-db = B.defaultDbSettings
+db :: B.DatabaseSettings be Db
+db = B.defaultDbSettings `B.withDbModification`
+       B.dbModification
+         { _dbEntity = B.setEntityName "beam-entity"
+         }
 
 data EntityT f
   = EntityT
@@ -39,7 +42,7 @@ instance B.Table EntityT where
 
 tableSchema :: B.Migration B.Postgres (B.CheckedDatabaseEntity B.Postgres db (B.TableEntity EntityT))
 tableSchema =
-  B.createTable "entity"
+  B.createTable "beam-entity"
     ( EntityT (B.field "id" B.serial B.notNull B.unique)
               (B.field "graph" nullableJsonb B.notNull)
     )
