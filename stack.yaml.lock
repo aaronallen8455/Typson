@@ -10,13 +10,13 @@ packages:
     version: 0.8.3.0
     git: git@github.com:flipstone/orville.git
     pantry-tree:
-      size: 7821
-      sha256: 7afcf2188843991fc8caa14f7006cc34ca6fd3c57029e2e594da08a847bb6c85
-    commit: efbd3fe1dca19cc07fe12b3824f1af5df46cbdf1
+      size: 7898
+      sha256: d8d29be455684b78288abb6abca031e46535a0cd5fdbfd6b2bc25c8c98b4908c
+    commit: 341557b9693f313a233e5a71fdbe41e3e90f17f9
   original:
     subdir: orville-postgresql
     git: git@github.com:flipstone/orville.git
-    commit: efbd3fe1dca19cc07fe12b3824f1af5df46cbdf1
+    commit: 341557b9693f313a233e5a71fdbe41e3e90f17f9
 - completed:
     hackage: HDBC-postgresql-2.3.2.7@sha256:93d8e3c3d2dc9291a10f28ae3f8d0604a55ef47298ed43003a4d16f3d9905bae,3228
     pantry-tree:

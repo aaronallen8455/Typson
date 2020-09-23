@@ -1,0 +1,53 @@
+name:                typson-esqueleto
+version:             0.1.0.0
+github:              "aaronallen8455/typson-esqueleto"
+license:             BSD3
+author:              "Aaron Allen"
+maintainer:          "aaronallen8455@gmail.com"
+copyright:           "2020 Aaron Allen"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/aaronallen8455/typson-esqueleto#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- aeson
+- esqueleto
+- persistent
+- persistent-template
+- text
+- typson
+
+library:
+  source-dirs: src
+
+tests:
+  typson-esqueleto-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - bytestring
+    - exceptions
+    - hedgehog
+    - microlens
+    - persistent-postgresql
+    - postgresql-simple
+    - tasty
+    - tasty-hedgehog
+    - tasty-hunit
+    - test-fixture
+    - typson-esqueleto

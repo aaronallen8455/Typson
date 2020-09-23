@@ -34,7 +34,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
          => proxy path
          -> repr tree o
          -> B.QGenExpr ctxt B.Postgres s (json o)
-         -> B.QGenExpr ctxt B.Postgres s (json field)
+         -> B.QGenExpr ctxt B.Postgres s (json field) -- TODO can this be JNullable json field?
 jsonPath path _ input =
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath input p) ps
