@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 93bb99db801d697220706cd514c01678411db9633ab91ef3c5c70950b599de0d
+-- hash: 1d98d2e6c445b92df63be0edf3796cf3deec55fe502e230f5045e3da617bfb5e
 
 name:           test-fixture
 version:        0.1.0.0
@@ -33,7 +33,7 @@ library
       aeson
     , base >=4.7 && <5
     , hedgehog
-    , typson
+    , typson-core
   default-language: Haskell2010
 
 test-suite spec
@@ -55,5 +55,5 @@ test-suite spec
     , tasty-hedgehog
     , tasty-hunit
     , test-fixture
-    , typson
+    , typson-core
   default-language: Haskell2010

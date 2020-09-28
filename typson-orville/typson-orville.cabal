@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d30ad601e4362a9ed77456f018ab22c601f0e34f107387ef43bdd99a173a59bf
+-- hash: c0e0ab162ed01e0ef4943e028295546f648ee82d269ea95c709e425a4a0680c9
 
 name:           typson-orville
 version:        0.1.0.0
@@ -39,7 +39,7 @@ library
     , bytestring
     , orville-postgresql
     , text
-    , typson
+    , typson-core
   default-language: Haskell2010
 
 test-suite spec
@@ -67,6 +67,6 @@ test-suite spec
     , tasty-hunit
     , test-fixture
     , text
-    , typson
+    , typson-core
     , typson-orville
   default-language: Haskell2010

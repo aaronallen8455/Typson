@@ -22,7 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/aaro
 dependencies:
 - base >= 4.7 && < 5
 - bytestring
-- typson
+- typson-core
 - selda
 - selda-postgresql
 - selda-json
@@ -55,6 +55,4 @@ tests:
     - tasty-hunit
     - test-fixture
     - test-fixture
-    - typson
-    - typson-beam
     - typson-selda

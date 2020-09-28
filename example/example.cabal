@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bd2e30b81585d6ede12eabe1a214cb99c1af0f977b9e8a1bd065f484f66c4fa4
+-- hash: 2a3526686771689db2c5c592d0d7b5fa19d5d7a604922b9e0d90776f97f7aede
 
 name:           example
 version:        0.1.0.0
@@ -38,6 +38,6 @@ executable example-exe
     , bytestring
     , hedgehog
     , orville-postgresql
-    , typson
+    , typson-core
     , typson-orville
   default-language: Haskell2010

@@ -25,7 +25,7 @@ dependencies:
 - beam-core
 - beam-postgres
 - postgresql-simple
-- typson
+- typson-core
 
 library:
   source-dirs: src
@@ -55,7 +55,6 @@ tests:
     - tasty
     - tasty-hedgehog
     - tasty-hunit
-    - typson
     - typson-beam
     - test-fixture
     - postgresql-simple

@@ -134,8 +134,8 @@ data PathComponent
   = Key String
   | Idx Integer
 
-class ReflectPath f where
-  reflectPath :: proxy f -> NE.NonEmpty PathComponent
+class ReflectPath path where
+  reflectPath :: proxy path -> NE.NonEmpty PathComponent
 
 instance KnownSymbol key => ReflectPath ((key :: Symbol) :-> ()) where
   reflectPath _ = Key (symbolVal (Proxy @key)) NE.:| []

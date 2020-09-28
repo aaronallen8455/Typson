@@ -23,7 +23,7 @@ dependencies:
 - bytestring
 - hedgehog
 - orville-postgresql
-- typson
+- typson-core
 - typson-orville
 
 executables:

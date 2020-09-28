@@ -29,13 +29,7 @@ resolver: lts-16.16
 #   - auto-update
 #   - wai
 packages:
-- typson-core
-- typson-beam
-- typson-orville
-- typson-selda
-- typson-esqueleto
-- test-fixture
-- example
+- .
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
@@ -45,25 +39,7 @@ packages:
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
-extra-deps:
-# Orville stuff
-- git: git@github.com:flipstone/orville.git
-  commit: 341557b9693f313a233e5a71fdbe41e3e90f17f9
-  subdirs:
-    - orville-postgresql
-- HDBC-postgresql-2.3.2.7
-# Beam stuff
-- git: git@github.com:haskell-beam/beam.git
-  commit: 84cac6dff45921ba51720444fd7d429dfbcebace
-  subdirs:
-    - beam-core
-    - beam-postgres
-    - beam-migrate
-- dependent-map-0.4.0.0
-- dependent-sum-0.7.1.0
-- constraints-extras-0.3.0.2
-# Selda stuff
-- selda-postgresql-0.1.8.1
+# extra-deps: []
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -76,7 +52,7 @@ extra-deps:
 #
 # Require a specific version of stack, using version ranges
 # require-stack-version: -any # Default
-# require-stack-version: ">=2.1"
+# require-stack-version: ">=2.3"
 #
 # Override the architecture used by stack, especially useful on Windows
 # arch: i386

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c83b40665ead1d667ec3bbb3e0e848344cb4131a1e635ce20445c8d526284bdc
+-- hash: 0945be5fcfb88052f879913e7a1d95e65e7784ff6b845023f1eb482072264157
 
 name:           typson-beam
 version:        0.1.0.0
@@ -38,7 +38,7 @@ library
     , beam-core
     , beam-postgres
     , postgresql-simple
-    , typson
+    , typson-core
   default-language: Haskell2010
 
 test-suite spec
@@ -66,6 +66,6 @@ test-suite spec
     , tasty-hedgehog
     , tasty-hunit
     , test-fixture
-    , typson
     , typson-beam
+    , typson-core
   default-language: Haskell2010

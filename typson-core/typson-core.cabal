@@ -4,9 +4,9 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 802b7cfbce332bf308e44ade5b7b379356beb6d51508c1371338868803239c7d
+-- hash: 3c6b537dbe182ddea02515a77c60f00a2956d8e522f749b36ed5f01afc7de683
 
-name:           typson
+name:           typson-core
 version:        0.1.0.0
 description:    Type safe JSON SQL with bidirectional parsing.
 homepage:       https://github.com/aaronallen8455/OrvilleJSON#readme
@@ -18,7 +18,6 @@ license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    README.md
     ChangeLog.md
 
 source-repository head
@@ -32,7 +31,7 @@ library
       Typson.Lens
       Typson.Pathing
   other-modules:
-      Paths_typson
+      Paths_typson_core
   hs-source-dirs:
       src
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall

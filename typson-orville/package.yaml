@@ -26,7 +26,7 @@ dependencies:
 - orville-postgresql
 - HDBC
 - text
-- typson
+- typson-core
 
 library:
   source-dirs: src
@@ -56,6 +56,5 @@ tests:
     - tasty
     - tasty-hedgehog
     - tasty-hunit
-    - typson
     - typson-orville
     - test-fixture

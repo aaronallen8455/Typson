@@ -19,7 +19,7 @@ dependencies:
 - base >= 4.7 && < 5
 - aeson
 - hedgehog
-- typson
+- typson-core
 
 library:
   source-dirs: src
@@ -45,5 +45,5 @@ tests:
     - tasty
     - tasty-hedgehog
     - tasty-hunit
-    - typson
+    - typson-core
     - test-fixture

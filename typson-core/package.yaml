@@ -1,4 +1,4 @@
-name:                typson
+name:                typson-core
 version:             0.1.0.0
 github:              "aaronallen8455/OrvilleJSON"
 license:             BSD3
@@ -7,7 +7,6 @@ maintainer:          "aaronallen8455@gmail.com"
 copyright:           "2020 Aaron Allen"
 
 extra-source-files:
-- README.md
 - ChangeLog.md
 
 # Metadata used when publishing your package

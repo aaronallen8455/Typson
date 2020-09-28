@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 09b0b2302f6464314af7ab5c6260506ede9fc3289fa1dddcd5b4508c85fefa46
+-- hash: ab1c9055f6634c7717fd499a52093f9770629a2b28a2655e4aa59a64fd8a13c4
 
 name:           typson-selda
 version:        0.1.0.0
@@ -40,7 +40,7 @@ library
     , selda-json
     , selda-postgresql
     , text
-    , typson
+    , typson-core
   default-language: Haskell2010
 
 test-suite typson-selda-test
@@ -68,7 +68,6 @@ test-suite typson-selda-test
     , tasty-hunit
     , test-fixture
     , text
-    , typson
-    , typson-beam
+    , typson-core
     , typson-selda
   default-language: Haskell2010
