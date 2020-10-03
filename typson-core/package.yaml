@@ -22,7 +22,8 @@ dependencies:
 - base >= 4.7 && < 5
 - aeson
 - text
-- microlens
+- unordered-containers
+- microlens # TODO not needed
 
 library:
   source-dirs: src

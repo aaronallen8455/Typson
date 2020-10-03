@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3c6b537dbe182ddea02515a77c60f00a2956d8e522f749b36ed5f01afc7de683
+-- hash: 3848e24a0fc1820f978297fca2cc16e88f4ef511223b1f184147b1a5673b2131
 
 name:           typson-core
 version:        0.1.0.0
@@ -40,4 +40,5 @@ library
     , base >=4.7 && <5
     , microlens
     , text
+    , unordered-containers
   default-language: Haskell2010

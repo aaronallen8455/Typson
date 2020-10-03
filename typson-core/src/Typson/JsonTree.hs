@@ -11,6 +11,7 @@ module Typson.JsonTree
   , type Multiplicity(..)
   , ObjectSYM(..)
   , FieldSYM(..)
+  , UnionSYM(..)
   , encodeObject
   , decodeObject
   , getObjectTree
@@ -21,8 +22,11 @@ module Typson.JsonTree
   , runAp_
   ) where
 
+import           Control.Applicative ((<|>))
 import           Data.Aeson ((.!=), (.:), (.:?), (.=), FromJSON, ToJSON)
 import qualified Data.Aeson.Types as Aeson
+import           Data.Functor.Identity (Identity(..))
+import qualified Data.HashMap.Strict as HM
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Text as T
@@ -44,12 +48,30 @@ data Multiplicity
   | Nullable
 
 --------------------------------------------------------------------------------
--- Final-tagless Symantics for Object Construction
+-- Final-tagless "Symantics" for Object Construction
 --------------------------------------------------------------------------------
 
-class ObjectSYM (repr :: Tree -> Type -> Type) where
+class UnionSYM (repr :: Tree -> Type -> Type) where
+  type Result repr union :: Type
+  data Tag repr :: Type -> Tree -> Type -> Type
+
+  union :: String
+        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
+        -> repr tree union
+
+  tag :: ( KnownSymbol name
+         , tree ~ '[ 'Node name 'Nullable v subTree]
+         )
+      => proxy name
+      -> (v -> union)
+      -> repr subTree v
+      -> Tag repr union tree (v -> Result repr union)
+
+class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   object :: (NonRecursive '[o] t, NoDuplicateKeys o t)
          => String -> IFreeAp (Field repr o) t o -> repr t o
+
+  -- prim :: _
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -117,7 +139,7 @@ class FieldSYM repr where
              -> repr subTree field
              -> Field repr obj tree [field]
 
-type JsonTree t a = forall repr. (ObjectSYM repr, FieldSYM repr) => repr t a
+type JsonTree t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 
 key :: Proxy (key :: Symbol)
 key = Proxy
@@ -136,6 +158,40 @@ data TreeProxy (t :: Tree) o = TreeProxy
 
 newtype ObjectTree (t :: Tree) o =
   ObjectTree { getObjectTree :: TreeProxy t o }
+
+instance UnionSYM ObjectEncoder where
+  newtype Tag ObjectEncoder u t a =
+    TagEncoder { unTagEncoder :: a }
+  type Result ObjectEncoder u = Aeson.Value
+  union _ tags = ObjectEncoder $
+    runIdentity (runAp (Identity . unTagEncoder) tags)
+  tag name _ valueEncoder =
+    TagEncoder $ \v ->
+      Aeson.object
+        [ T.pack (symbolVal name) .= encodeObject valueEncoder v ]
+
+instance UnionSYM ObjectDecoder where
+  newtype Tag ObjectDecoder u t a =
+    TagDecoder { unTagDecoder :: HM.HashMap T.Text (Aeson.Value -> Aeson.Parser u) }
+  type Result ObjectDecoder u = ()
+  union name tags = ObjectDecoder .
+    Aeson.withObject name $ \obj -> do
+      let decoderMap = runAp_ unTagDecoder tags
+          decodeVal k v nxt =
+            case HM.lookup k decoderMap of
+              Nothing -> nxt
+              Just tagDecoder ->
+                tagDecoder v <|> nxt
+      HM.foldrWithKey decodeVal (fail "Unable to find a matching tag") obj
+  tag name constr valueDecoder =
+    TagDecoder . HM.singleton (T.pack $ symbolVal name)
+      $ fmap constr . decodeObject valueDecoder
+
+instance UnionSYM ObjectTree where
+  data Tag ObjectTree u t a = TagProxy
+  type Result ObjectTree u = ()
+  union _ _ = ObjectTree TreeProxy
+  tag _ _ _ = TagProxy
 
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
