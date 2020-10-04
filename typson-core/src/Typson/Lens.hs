@@ -10,7 +10,6 @@ module Typson.Lens
   ) where
 
 import           Lens.Micro (Lens', lens)
-import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Functor.Identity (Identity(..))
 import           Data.Kind (Type)
 import           Data.Monoid (First(..))
@@ -58,73 +57,47 @@ instance ObjectSYM (Getter queryKey queryType) where
       Nothing -> error "the impossible happened!"
       Just getter -> getter obj
 
+  prim = error "impossible"
+
 instance forall queryKey queryType. FieldSYM (Getter queryKey queryType) where
   newtype Field (Getter queryKey queryType) obj tree a =
     Get { unGet :: KnownSymbol queryKey => Proxy queryKey -> First (obj -> queryType) }
 
-  prim :: forall field key tree obj proxy.
-          ( FromJSON field
-          , ToJSON field
-          , KnownSymbol key
-          , tree ~ '[ 'Node key 'Singleton field '[]]
-          )
-       => proxy key
-       -> (obj -> field)
-       -> Field (Getter queryKey queryType) obj tree field
-  prim _ getter = Get $ \_ -> First $
+  field :: forall field key subTree tree obj repr proxy.
+           ( KnownSymbol key
+           , tree ~ '[ 'Node key 'Singleton field subTree]
+           )
+        => proxy key
+        -> (obj -> field)
+        -> repr subTree field
+        -> Field (Getter queryKey queryType) obj tree field
+  field _ getter _ = Get $ \_ -> First $
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
       Nothing -> Nothing
       Just Refl -> Just getter
 
-  optPrim :: forall field key tree obj proxy.
-             ( FromJSON field
-             , ToJSON field
-             , KnownSymbol key
-             , tree ~ '[ 'Node key 'Nullable field '[]]
-             )
-          => proxy key
-          -> (obj -> Maybe field)
-          -> Field (Getter queryKey queryType) obj tree (Maybe field)
-  optPrim _ getter = Get $ \_ -> First $
+  optField :: forall field key subTree tree obj repr proxy.
+              ( KnownSymbol key
+              , tree ~ '[ 'Node key 'Nullable field subTree]
+              )
+           => proxy key
+           -> (obj -> Maybe field)
+           -> repr subTree field
+           -> Field (Getter queryKey queryType) obj tree (Maybe field)
+  optField _ getter _ = Get $ \_ -> First $
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
       Nothing -> Nothing
       Just Refl -> Just getter
 
-  subObj :: forall field key subTree tree obj repr proxy.
-            ( KnownSymbol key
-            , tree ~ '[ 'Node key 'Singleton field subTree]
-            )
-         => proxy key
-         -> (obj -> field)
-         -> repr subTree field
-         -> Field (Getter queryKey queryType) obj tree field
-  subObj _ getter _ = Get $ \_ -> First $
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
-      Nothing -> Nothing
-      Just Refl -> Just getter
-
-  optSubObj :: forall field key subTree tree obj repr proxy.
+  listField :: forall field key subTree tree obj repr proxy.
                ( KnownSymbol key
-               , tree ~ '[ 'Node key 'Nullable field subTree]
+               , tree ~ '[ 'Node key 'List field subTree]
                )
             => proxy key
-            -> (obj -> Maybe field)
+            -> (obj -> [field])
             -> repr subTree field
-            -> Field (Getter queryKey queryType) obj tree (Maybe field)
-  optSubObj _ getter _ = Get $ \_ -> First $
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
-      Nothing -> Nothing
-      Just Refl -> Just getter
-
-  subObjList :: forall field key subTree tree obj repr proxy.
-                ( KnownSymbol key
-                , tree ~ '[ 'Node key 'List field subTree]
-                )
-             => proxy key
-             -> (obj -> [field])
-             -> repr subTree field
-             -> Field (Getter queryKey queryType) obj tree [field]
-  subObjList _ getter _ = Get $ \_ -> First $
+            -> Field (Getter queryKey queryType) obj tree [field]
+  listField _ getter _ = Get $ \_ -> First $
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
       Nothing -> Nothing
       Just Refl -> Just getter
@@ -146,6 +119,7 @@ newtype Setter (key :: Symbol) (fieldType :: Type) (t :: Tree) o =
 instance ObjectSYM (Setter queryKey queryType) where
   object _ ap = Setter $ \keyProxy obj val ->
     runIdentity $ runAp (\s -> Identity $ runSet s keyProxy val obj) ap
+  prim = Setter $ \_ o _ -> o
 
 instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
   newtype Field (Setter queryKey queryType) obj tree fieldType =
@@ -156,69 +130,41 @@ instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
                  -> fieldType
         }
 
-  prim :: forall field key tree obj proxy.
-          ( FromJSON field
-          , ToJSON field
-          , KnownSymbol key
-          , tree ~ '[ 'Node key 'Singleton field '[]]
-          )
-       => proxy key
-       -> (obj -> field)
-       -> Field (Setter queryKey queryType) obj tree field
-  prim _ getter = Set $ \_ value obj ->
+  field :: forall field key subTree tree obj repr proxy.
+           ( KnownSymbol key
+           , tree ~ '[ 'Node key 'Singleton field subTree]
+           )
+        => proxy key
+        -> (obj -> field)
+        -> repr subTree field
+        -> Field (Setter queryKey queryType) obj tree field
+  field _ getter _ = Set $ \_ value obj ->
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
       Nothing -> getter obj
       Just Refl -> value
 
-  optPrim :: forall field key tree obj proxy.
-             ( FromJSON field
-             , ToJSON field
-             , KnownSymbol key
-             , tree ~ '[ 'Node key 'Nullable field '[]]
-             )
-          => proxy key
-          -> (obj -> Maybe field)
-          -> Field (Setter queryKey queryType) obj tree (Maybe field)
-  optPrim _ getter = Set $ \_ value obj ->
+  optField :: forall field key subTree tree obj repr proxy.
+              ( KnownSymbol key
+              , tree ~ '[ 'Node key 'Nullable field subTree]
+              )
+           => proxy key
+           -> (obj -> Maybe field)
+           -> repr subTree field
+           -> Field (Setter queryKey queryType) obj tree (Maybe field)
+  optField _ getter _ = Set $ \_ value obj ->
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
       Nothing -> getter obj
       Just Refl -> value
 
-  subObj :: forall field key subTree tree obj repr proxy.
-            ( KnownSymbol key
-            , tree ~ '[ 'Node key 'Singleton field subTree]
-            )
-         => proxy key
-         -> (obj -> field)
-         -> repr subTree field
-         -> Field (Setter queryKey queryType) obj tree field
-  subObj _ getter _ = Set $ \_ value obj ->
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
-      Nothing -> getter obj
-      Just Refl -> value
-
-  optSubObj :: forall field key subTree tree obj repr proxy.
+  listField :: forall field key subTree tree obj repr proxy.
                ( KnownSymbol key
-               , tree ~ '[ 'Node key 'Nullable field subTree]
+               , tree ~ '[ 'Node key 'List field subTree]
                )
             => proxy key
-            -> (obj -> Maybe field)
+            -> (obj -> [field])
             -> repr subTree field
-            -> Field (Setter queryKey queryType) obj tree (Maybe field)
-  optSubObj _ getter _ = Set $ \_ value obj ->
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
-      Nothing -> getter obj
-      Just Refl -> value
-
-  subObjList :: forall field key subTree tree obj repr proxy.
-                ( KnownSymbol key
-                , tree ~ '[ 'Node key 'List field subTree]
-                )
-             => proxy key
-             -> (obj -> [field])
-             -> repr subTree field
-             -> Field (Setter queryKey queryType) obj tree [field]
-  subObjList _ getter _ = Set $ \_ value obj ->
+            -> Field (Setter queryKey queryType) obj tree [field]
+  listField _ getter _ = Set $ \_ value obj ->
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
       Nothing -> getter obj
       Just Refl -> value

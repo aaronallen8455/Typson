@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1d98d2e6c445b92df63be0edf3796cf3deec55fe502e230f5045e3da617bfb5e
+-- hash: 013f4b7d7954fa7c3490fe7e41aab654d9055513095aa65956fb880a8f508600
 
 name:           test-fixture
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       aeson
     , base >=4.7 && <5
     , hedgehog
+    , microlens
     , typson-core
   default-language: Haskell2010
 

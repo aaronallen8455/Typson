@@ -58,8 +58,8 @@ instance (Pg.FromField (json a), B.Typeable a, B.Typeable json)
   => B.FromBackendRow B.Postgres (JNullable json a)
 
 instance Pg.FromField (json a) => Pg.FromField (JNullable json a) where
-  fromField field mbBs = JNullable
-                     <$> Pg.fromField field (Just $ fromMaybe "null" mbBs)
+  fromField f mbBs = JNullable
+                 <$> Pg.fromField f (Just $ fromMaybe "null" mbBs)
 
 --------------------------------------------------------------------------------
 -- Schema DataTypes

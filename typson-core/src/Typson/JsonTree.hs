@@ -23,7 +23,7 @@ module Typson.JsonTree
   ) where
 
 import           Control.Applicative ((<|>))
-import           Data.Aeson ((.!=), (.:), (.:?), (.=), FromJSON, ToJSON)
+import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON)
 import qualified Data.Aeson.Types as Aeson
 import           Data.Functor.Identity (Identity(..))
 import qualified Data.HashMap.Strict as HM
@@ -71,75 +71,49 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   object :: (NonRecursive '[o] t, NoDuplicateKeys o t)
          => String -> IFreeAp (Field repr o) t o -> repr t o
 
-  -- prim :: _
+  prim :: ( FromJSON v
+          , ToJSON v
+          )
+       => repr '[] v
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
 
-  prim :: ( FromJSON field
-          , ToJSON field
-          , KnownSymbol key
-          , tree ~ '[ 'Node key 'Singleton field '[]]
-          )
-       => proxy key
-       -> (obj -> field)
-       -> Field repr obj tree field
+  field :: ( KnownSymbol key
+           , tree ~ '[ 'Node key 'Singleton field subTree]
+           )
+        => proxy key
+        -> (obj -> field)
+        -> repr subTree field
+        -> Field repr obj tree field
 
-  optPrim :: ( FromJSON field
-             , ToJSON field
-             , KnownSymbol key
-             , tree ~ '[ 'Node key 'Nullable field '[]]
-             )
-          => proxy key
-          -> (obj -> Maybe field)
-          -> Field repr obj tree (Maybe field)
+  optField :: ( KnownSymbol key
+              , tree ~ '[ 'Node key 'Nullable field subTree]
+              )
+           => proxy key
+           -> (obj -> Maybe field)
+           -> repr subTree field
+           -> Field repr obj tree (Maybe field)
 
-  optPrimDef :: ( FromJSON field
-                , ToJSON field
-                , KnownSymbol key
-                , tree ~ '[ 'Node key 'Singleton field '[]]
-                )
-             => proxy key
-             -> (obj -> field)
-             -> field
-             -> Field repr obj tree field
-  optPrimDef p getter _ = prim p getter
+  optFieldDef :: ( KnownSymbol key
+                 , tree ~ '[ 'Node key 'Singleton field subTree]
+                 )
+              => proxy key
+              -> (obj -> field)
+              -> field
+              -> repr subTree field
+              -> Field repr obj tree field
+  optFieldDef p getter _ sub = field p getter sub
 
-  subObj :: ( KnownSymbol key
-            , tree ~ '[ 'Node key 'Singleton field subTree]
-            )
-         => proxy key
-         -> (obj -> field)
-         -> repr subTree field
-         -> Field repr obj tree field
-
-  optSubObj :: ( KnownSymbol key
-               , tree ~ '[ 'Node key 'Nullable field subTree]
+  listField :: ( KnownSymbol key
+               , tree ~ '[ 'Node key 'List field subTree]
                )
             => proxy key
-            -> (obj -> Maybe field)
+            -> (obj -> [field])
             -> repr subTree field
-            -> Field repr obj tree (Maybe field)
+            -> Field repr obj tree [field]
 
-  optSubObjDef :: ( KnownSymbol key
-                  , tree ~ '[ 'Node key 'Singleton field subTree]
-                  )
-               => proxy key
-               -> (obj -> field)
-               -> field
-               -> repr subTree field
-               -> Field repr obj tree field
-  optSubObjDef p getter _ sub = subObj p getter sub
-
-  subObjList :: ( KnownSymbol key
-                , tree ~ '[ 'Node key 'List field subTree]
-                )
-             => proxy key
-             -> (obj -> [field])
-             -> repr subTree field
-             -> Field repr obj tree [field]
-
-type JsonTree t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
+type JsonTree t a = forall repr. ObjectSYM repr => repr t a
 
 key :: Proxy (key :: Symbol)
 key = Proxy
@@ -196,53 +170,46 @@ instance UnionSYM ObjectTree where
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
     Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
+  prim = ObjectEncoder Aeson.toJSON
 
 instance ObjectSYM ObjectDecoder where
   object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
     runAp (`unFieldDecoder` obj) fields
+  prim = ObjectDecoder Aeson.parseJSON
 
 instance ObjectSYM ObjectTree where
   object _ _ = ObjectTree TreeProxy
+  prim = ObjectTree TreeProxy
 
 instance FieldSYM ObjectTree where
   data Field ObjectTree o t a = FieldProxy
-  prim _ _ = FieldProxy
-  optPrim _ _ = FieldProxy
-  subObj _ _ _ = FieldProxy
-  optSubObj _ _ _ = FieldProxy
-  subObjList _ _ _ = FieldProxy
+  field _ _ _ = FieldProxy
+  optField _ _ _ = FieldProxy
+  listField _ _ _ = FieldProxy
 
 instance FieldSYM ObjectEncoder where
   newtype Field ObjectEncoder o t a =
     FieldEncoder { unFieldEncoder :: o -> Aeson.Object }
-  prim ky acc = FieldEncoder $ \o -> T.pack (symbolVal ky) .= acc o
-  optPrim ky acc = FieldEncoder $ \o -> T.pack (symbolVal ky) .= acc o
-  subObj ky acc (ObjectEncoder so) =
+  field ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= so (acc o)
-  optSubObj ky acc (ObjectEncoder so) =
+  optField ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
-  subObjList ky acc (ObjectEncoder so) =
+  listField ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
 
 instance FieldSYM ObjectDecoder where
   newtype Field ObjectDecoder o t a =
     FieldDecoder { unFieldDecoder :: Aeson.Object -> Aeson.Parser a }
-  prim ky _ = FieldDecoder $ \obj ->
-    obj .: T.pack (symbolVal ky)
-  optPrim ky _ = FieldDecoder $ \obj ->
-    obj .:? T.pack (symbolVal ky)
-  optPrimDef ky _ def = FieldDecoder $ \obj ->
-    obj .:? T.pack (symbolVal ky) .!= def
-  subObj ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+  field ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     so <- obj .: T.pack (symbolVal ky)
     d so
-  optSubObj ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+  optField ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal ky)
     traverse d mbSo
-  optSubObjDef ky _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
+  optFieldDef ky _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal ky)
     maybe (pure def) d mbSo
-  subObjList ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
+  listField ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
     so <- obj .: T.pack (symbolVal ky)
     traverse d so
 

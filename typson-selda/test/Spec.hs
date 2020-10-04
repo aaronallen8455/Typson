@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -10,7 +9,6 @@ import           Data.List (sort)
 import qualified Database.Selda as S
 import qualified Database.Selda.Backend as S
 import qualified Database.Selda.PostgreSQL as S
-import           Lens.Micro
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as HH
 import           System.Environment (lookupEnv)
@@ -35,78 +33,47 @@ seldaTestTree = withRunDb $ \runDb ->
 
       r1 <- runDb . S.query $
               jsonPath basicPath1 (getObjectTree bazJ) <$> getAllGraphs
-      let a1 = flip map graphs $ \g -> Json $
-                 g ^. fieldLens (key @"baz1") bazJ
-                    . fieldLens (key @"bar3") barJ
+      let a1 = Json . basicPath1Getter <$> graphs
       assertEqual "Basic Path 1" (sort r1) (sort a1)
 
       r2 <- runDb . S.query $
               jsonPath basicPath2 (getObjectTree bazJ) <$> getAllGraphs
-      let a2 = flip map graphs $ \g -> Json $
-            g ^. fieldLens (key @"baz1") bazJ
-               . fieldLens (key @"bar1") barJ
-               . fieldLens (key @"foo3") fooJ
+      let a2 = Json . basicPath2Getter <$> graphs
       assertEqual "Basic Path 2" (sort r2) (sort a2)
 
       r3 <- runDb . S.query $
               jsonPath basicPath3 (getObjectTree bazJ) <$> getAllGraphs
-      let a3 = flip map graphs $ \g -> Json $
-            g ^. fieldLens (key @"baz1") bazJ
+      let a3 = Json . basicPath3Getter <$> graphs
       assertEqual "Basic Path 3" (sort r3) (sort a3)
 
       r4 <- runDb . S.query $
               jsonPath optionalPath1 (getObjectTree bazJ) <$> getAllGraphs
-      let a4 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz1") bazJ
-               . fieldLens (key @"bar2") barJ
-               . _Just
-               . fieldLens (key @"foo4") fooJ
+      let a4 = Json . optionalPath1Getter <$> graphs
       assertEqual "Optional Path 1" (sort r4) (sort a4)
 
       r5 <- runDb . S.query $
               jsonPath optionalPath2 (getObjectTree bazJ) <$> getAllGraphs
-      let a5 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz1") bazJ
-               . fieldLens (key @"bar2") barJ
-               . _Just
-               . fieldLens (key @"foo2") fooJ
-               . _Just
+      let a5 = Json . optionalPath2Getter <$> graphs
       assertEqual "Optional Path 2" (sort r5) (sort a5)
 
       r6 <- runDb . S.query $
               jsonPath optionalPath3 (getObjectTree bazJ) <$> getAllGraphs
-      let a6 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz2") bazJ
-               . _Just
-               . fieldLens (key @"bar1") barJ
-               . fieldLens (key @"foo2") fooJ
-               . _Just
+      let a6 = Json . optionalPath3Getter <$> graphs
       assertEqual "Optional Path 3" (sort r6) (sort a6)
 
       r7 <- runDb . S.query $
               jsonPath listIdxPath1 (getObjectTree bazJ) <$> getAllGraphs
-      let a7 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz1") bazJ
-               . fieldLens (key @"bar1") barJ
-               . fieldLens (key @"foo1") fooJ
-               . ix 2
+      let a7 = Json . listIdxPath1Getter <$> graphs
       assertEqual "List Idx Path 1" (sort r7) (sort a7)
 
       r8 <- runDb . S.query $
               jsonPath listIdxPath2 (getObjectTree bazJ) <$> getAllGraphs
-      let a8 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz3") bazJ
-               . ix 0
-               . fieldLens (key @"foo3") fooJ
+      let a8 = Json . listIdxPath2Getter <$> graphs
       assertEqual "List Idx Path 2" (sort r8) (sort a8)
 
       r9 <- runDb . S.query $
               jsonPath listIdxPath3 (getObjectTree bazJ) <$> getAllGraphs
-      let a9 = flip map graphs $ \g -> Json $
-            g ^? fieldLens (key @"baz3") bazJ
-               . ix 0
-               . fieldLens (key @"foo1") fooJ
-               . ix 1
+      let a9 = Json . listIdxPath3Getter <$> graphs
       assertEqual "List Idx Quer 3" (sort r9) (sort a9)
   ]
 
