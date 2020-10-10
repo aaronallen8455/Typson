@@ -7,6 +7,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 module Typson.Lens
   ( fieldLens
   , fieldPrism
@@ -15,14 +16,14 @@ module Typson.Lens
 import           Data.Functor.Identity (Identity(..))
 import           Data.Profunctor (Profunctor(dimap))
 import           Data.Profunctor.Choice (Choice(..))
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.Monoid (First(..))
 import           Data.Proxy (Proxy(..))
 import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (FieldSYM(..), IFreeAp, Multiplicity(..), NoDuplicateKeys, Node(..), NonRecursive, ObjectSYM(..), Tree, UnionSYM(..), runAp, runAp_)
+import           Typson.JsonTree (FieldSYM(..), Multiplicity(..), Node(..), ObjectSYM(..), Tree, UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath, (:->))
 
 --------------------------------------------------------------------------------
@@ -37,45 +38,48 @@ import           Typson.Pathing (TypeAtPath, (:->))
 fieldLens :: forall key obj tree ty proxy.
              ( KnownSymbol key
              , TypeAtPath obj tree (key :-> ()) ~ ty
+             , GetOpticType (GetMult tree) ~ 'LensOptic
              )
           => proxy key
-          -> Lens key ty tree obj
+          -> Optic key ty tree obj
           -> (forall f. Functor f => (ty -> f ty) -> obj -> f obj)
-fieldLens _ = getOptic
+fieldLens _ = \case
+  Lens lens -> lens
+  Prism _ -> error "impossible"
 
 fieldPrism :: forall key obj tree ty proxy.
               ( KnownSymbol key
               , TypeAtPath obj tree (key :-> ()) ~ ty
+              , GetOpticType (GetMult tree) ~ 'PrismOptic
               )
            => proxy key
-           -> Prism key ty tree obj
+           -> Optic key ty tree obj
            -> (forall f p. (Choice p, Applicative f) => p ty (f ty) -> p obj (f obj))
-fieldPrism _ = getOptic
+fieldPrism _ = \case
+  Lens _ -> error "impossible"
+  Prism prism -> prism
+
+type family GetMult (t :: Tree) :: Multiplicity where
+  GetMult ('Node k mult ty subTree ': rest) = mult
+
+data OpticType = LensOptic | PrismOptic
+
+type family GetOpticType (m :: Multiplicity) :: OpticType where
+  GetOpticType 'UnionTag = 'PrismOptic
+  GetOpticType other     = 'LensOptic
 
 --------------------------------------------------------------------------------
 -- Optic
 --------------------------------------------------------------------------------
 
--- better to have separate lens and prism types?
-type Lens = Optic ((~) (->)) Functor
-type Prism = Optic Choice Applicative
-
-newtype Optic (pPred :: (Type -> Type -> Type) -> Constraint)
-              (fPred :: (Type -> Type) -> Constraint)
-              (key :: Symbol)
-              (val :: Type)
-              (t :: Tree)
-              (o :: Type)
-  = Optic
-    { getOptic :: forall p f. (pPred p, fPred f)
-               => p val (f val)
-               -> p o (f o)
-    }
+data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
+  = Lens (forall f. Functor f => (val -> f val) -> o -> f o)
+  | Prism (forall f p. (Choice p, Applicative f) => p val (f val) -> p o (f o))
 
 instance KnownSymbol queryKey
-    => ObjectSYM (Lens queryKey queryType) where
+    => ObjectSYM (Optic queryKey queryType) where
 
-  object _ fields = Optic $ \afa obj ->
+  object _ fields = Lens $ \afa obj ->
     case getFirst $ runAp_ fGetter fields of
       Nothing -> error "the impossible happened!"
       Just getter ->
@@ -87,9 +91,9 @@ instance KnownSymbol queryKey
   prim = error "impossible"
 
 instance KnownSymbol queryKey
-    => FieldSYM (Lens queryKey queryType) where
+    => FieldSYM (Optic queryKey queryType) where
 
-  data Field (Lens queryKey queryType) obj tree fieldType =
+  data Field (Optic queryKey queryType) obj tree fieldType =
     Focus { fGetter :: First (obj -> queryType)
           , fSetter :: queryType
                     -> obj
@@ -104,7 +108,7 @@ instance KnownSymbol queryKey
         => proxy key
         -> (obj -> field)
         -> repr subTree field
-        -> Field (Lens queryKey queryType) obj tree field
+        -> Field (Optic queryKey queryType) obj tree field
   field _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
       Nothing ->
@@ -126,7 +130,7 @@ instance KnownSymbol queryKey
            => proxy key
            -> (obj -> Maybe field)
            -> repr subTree field
-           -> Field (Lens queryKey queryType) obj tree (Maybe field)
+           -> Field (Optic queryKey queryType) obj tree (Maybe field)
   optField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
       Nothing ->
@@ -148,7 +152,7 @@ instance KnownSymbol queryKey
             => proxy key
             -> (obj -> [field])
             -> repr subTree field
-            -> Field (Lens queryKey queryType) obj tree [field]
+            -> Field (Optic queryKey queryType) obj tree [field]
   listField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
       Nothing ->
@@ -162,16 +166,16 @@ instance KnownSymbol queryKey
           , fSetter = const
           }
 
-instance KnownSymbol queryKey => UnionSYM (Prism queryKey queryType) where
-  type Result (Prism queryKey queryType) union = Maybe queryType
+instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
+  type Result (Optic queryKey queryType) union = Maybe queryType
 
-  data Tag (Prism queryKey queryType) union tree vToRes =
+  data Tag (Optic queryKey queryType) union tree vToRes =
     Facet
       { fExtract :: vToRes
       , fEmbed :: First (queryType -> union)
       }
 
-  union _ tags = Optic $ \pafa ->
+  union _ tags = Prism $ \pafa ->
     case getFirst $ runAp_ fEmbed tags of
       Nothing -> error "impossible"
       Just embed ->
@@ -187,8 +191,8 @@ instance KnownSymbol queryKey => UnionSYM (Prism queryKey queryType) where
          )
       => proxy name
       -> (v -> union)
-      -> Prism queryKey queryType subTree v
-      -> Tag (Prism queryKey queryType) union tree (v -> Maybe queryType)
+      -> Optic queryKey queryType subTree v
+      -> Tag (Optic queryKey queryType) union tree (v -> Maybe queryType)
   tag _ embed _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(name, v)) of
       Nothing ->
