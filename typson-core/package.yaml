@@ -23,7 +23,7 @@ dependencies:
 - aeson
 - text
 - unordered-containers
-- microlens # TODO not needed
+- profunctors
 
 library:
   source-dirs: src

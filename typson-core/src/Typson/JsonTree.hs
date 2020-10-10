@@ -12,6 +12,9 @@ module Typson.JsonTree
   , ObjectSYM(..)
   , FieldSYM(..)
   , UnionSYM(..)
+  , NonRecursive
+  , NoDuplicateKeys
+  , IFreeAp
   , encodeObject
   , decodeObject
   , getObjectTree
@@ -46,6 +49,7 @@ data Multiplicity
   = List
   | Singleton
   | Nullable
+  | UnionTag
 
 --------------------------------------------------------------------------------
 -- Final-tagless "Symantics" for Object Construction
@@ -60,7 +64,7 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
         -> repr tree union
 
   tag :: ( KnownSymbol name
-         , tree ~ '[ 'Node name 'Nullable v subTree]
+         , tree ~ '[ 'Node name 'UnionTag v subTree]
          )
       => proxy name
       -> (v -> union)
@@ -256,7 +260,7 @@ type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
 -- Free Indexed Applicative
 --------------------------------------------------------------------------------
 
-data IFreeAp f (t :: Tree) (a :: Type) where
+data IFreeAp (f :: Tree -> Type -> Type) (t :: Tree) (a :: Type) where
   Pure :: a -> IFreeAp f '[] a
   Ap   :: IFreeAp f t (a -> b)
        -> f '[st] a

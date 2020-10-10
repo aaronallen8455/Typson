@@ -114,10 +114,12 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
 -- Utilities
 --------------------------------------------------------------------------------
 
+-- | Applies the multiplicity to the focused field of a path
 type family ApResult (q :: Multiplicity) (b :: Type) :: Type where
   ApResult 'List a = [a]
   ApResult q a = ApQuantity q a
 
+-- | Applies a field's multiplicity to the type it contains.
 -- Using this requires UndecidableInstances
 type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
   ApQuantity 'Nullable (Maybe a) = Maybe a
@@ -125,6 +127,8 @@ type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
   ApQuantity 'Singleton a = a
   ApQuantity 'List (Maybe a) = Maybe a
   ApQuantity 'List a = Maybe a
+  ApQuantity 'UnionTag (Maybe a) = Maybe a
+  ApQuantity 'UnionTag a = Maybe a
 
 --------------------------------------------------------------------------------
 -- Path Reflection

@@ -5,169 +5,163 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Typson.Lens
   ( fieldLens
   ) where
 
-import           Lens.Micro (Lens', lens)
 import           Data.Functor.Identity (Identity(..))
-import           Data.Kind (Type)
+import           Data.Profunctor.Choice (Choice(..))
+import           Data.Kind (Constraint, Type)
 import           Data.Monoid (First(..))
 import           Data.Proxy (Proxy(..))
 import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (FieldSYM(..), Node(..), ObjectSYM(..), Multiplicity(..), Tree, runAp, runAp_)
+import           Typson.JsonTree (FieldSYM(..), IFreeAp, Multiplicity(..), NoDuplicateKeys, Node(..), NonRecursive, ObjectSYM(..), Tree, runAp, runAp_)
 import           Typson.Pathing (TypeAtPath, (:->))
 
 --------------------------------------------------------------------------------
 -- Lens
 --------------------------------------------------------------------------------
 
-fieldLens :: forall key obj tree ty proxy.
+fieldLens :: forall key obj tree ty proxy pPred fPred mult.
              ( KnownSymbol key
              , TypeAtPath obj tree (key :-> ()) ~ ty
+             , GetMult tree ~ mult
+             , DerivePreds mult ~ '(pPred, fPred)
              )
           => proxy key
-          -> (forall repr. (ObjectSYM repr, FieldSYM repr) => repr tree obj)
-          -> Lens' obj ty
-fieldLens _ repr =
-  lens (runGetter repr keyProxy)
-       (runSetter repr keyProxy)
+          -> Optic pPred fPred key ty tree obj
+          -> (forall p f. (pPred p, fPred f) => p ty (f ty) -> p obj (f obj))
+fieldLens _ optic =
+  getOptic optic keyProxy
   where
     keyProxy = Proxy @key
 
+type family GetMult (t :: Tree) :: Multiplicity where
+  GetMult ('Node key mult ty subTree ': rest) = mult
+
+type family DerivePreds (mult :: Multiplicity) where
+  DerivePreds 'UnionTag = '(Choice, Applicative) -- Union types make prisms
+  DerivePreds other     = '((~) (->), Functor) -- everything else is a lens
+
 --------------------------------------------------------------------------------
--- Getter
+-- Optic
 --------------------------------------------------------------------------------
 
-newtype Getter (key :: Symbol) (val :: Type) (t :: Tree) o =
-  Getter { runGetter :: ( KnownSymbol key
-                        , TypeAtPath o t (key :-> ()) ~ val
-                        )
-                     => Proxy key
-                     -> o
-                     -> val
-         }
+newtype Optic (pPred :: (Type -> Type -> Type) -> Constraint)
+              (fPred :: (Type -> Type) -> Constraint)
+              (key :: Symbol)
+              (val :: Type)
+              (t :: Tree)
+              (o :: Type)
+  = Optic
+    { getOptic :: forall p f. (pPred p, fPred f)
+               => Proxy key
+               -> p val (f val)
+               -> p o (f o)
+    }
 
-instance ObjectSYM (Getter queryKey queryType) where
-  object _ ap = Getter $ \keyProxy obj ->
-    case getFirst $ runAp_ unGet ap keyProxy of
+instance KnownSymbol queryKey
+    => ObjectSYM (Optic ((~) (->)) Functor queryKey queryType) where
+
+  object :: (NonRecursive '[o] tree, NoDuplicateKeys o tree)
+         => String
+         -> IFreeAp (Field (Optic ((~) (->)) Functor queryKey queryType) o) tree o
+         -> Optic ((~) (->)) Functor queryKey queryType tree o
+  object _ fields = Optic $ \keyProxy afa obj ->
+    case getFirst $ runAp_ (`fGetter` keyProxy) fields of
       Nothing -> error "the impossible happened!"
-      Just getter -> getter obj
+      Just getter ->
+        let val = getter obj
+            setter o a =
+              runIdentity $ runAp (\s -> Identity $ fSetter s keyProxy a o) fields
+         in setter obj <$> afa val
 
   prim = error "impossible"
 
-instance forall queryKey queryType. FieldSYM (Getter queryKey queryType) where
-  newtype Field (Getter queryKey queryType) obj tree a =
-    Get { unGet :: KnownSymbol queryKey => Proxy queryKey -> First (obj -> queryType) }
+instance forall queryKey queryType. KnownSymbol queryKey
+    => FieldSYM (Optic ((~) (->)) Functor queryKey queryType) where
+
+  data Field (Optic ((~) (->)) Functor queryKey queryType) obj tree fieldType =
+    Focus { fGetter :: Proxy queryKey
+                    -> First (obj -> queryType)
+          , fSetter :: Proxy queryKey
+                    -> queryType
+                    -> obj
+                    -> fieldType
+          }
 
   field :: forall field key subTree tree obj repr proxy.
            ( KnownSymbol key
+           , KnownSymbol queryKey
            , tree ~ '[ 'Node key 'Singleton field subTree]
            )
         => proxy key
         -> (obj -> field)
         -> repr subTree field
-        -> Field (Getter queryKey queryType) obj tree field
-  field _ getter _ = Get $ \_ -> First $
+        -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree field
+  field _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
-      Nothing -> Nothing
-      Just Refl -> Just getter
+      Nothing ->
+        Focus
+          { fGetter = \_ -> First Nothing
+          , fSetter = \_ _ obj -> getter obj
+          }
+      Just Refl ->
+        Focus
+          { fGetter = \_ -> First $ Just getter
+          , fSetter = \_ value _ -> value
+          }
 
   optField :: forall field key subTree tree obj repr proxy.
               ( KnownSymbol key
+              , KnownSymbol queryKey
               , tree ~ '[ 'Node key 'Nullable field subTree]
               )
            => proxy key
            -> (obj -> Maybe field)
            -> repr subTree field
-           -> Field (Getter queryKey queryType) obj tree (Maybe field)
-  optField _ getter _ = Get $ \_ -> First $
+           -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree (Maybe field)
+  optField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
-      Nothing -> Nothing
-      Just Refl -> Just getter
+      Nothing ->
+        Focus
+          { fGetter = \_ -> First Nothing
+          , fSetter = \_ _ obj -> getter obj
+          }
+      Just Refl ->
+        Focus
+          { fGetter = \_ -> First $ Just getter
+          , fSetter = \_ value _ -> value
+          }
 
   listField :: forall field key subTree tree obj repr proxy.
                ( KnownSymbol key
+               , KnownSymbol queryKey
                , tree ~ '[ 'Node key 'List field subTree]
                )
             => proxy key
             -> (obj -> [field])
             -> repr subTree field
-            -> Field (Getter queryKey queryType) obj tree [field]
-  listField _ getter _ = Get $ \_ -> First $
+            -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree [field]
+  listField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
-      Nothing -> Nothing
-      Just Refl -> Just getter
+      Nothing ->
+        Focus
+          { fGetter = \_ -> First Nothing
+          , fSetter = \_ _ obj -> getter obj
+          }
+      Just Refl ->
+        Focus
+          { fGetter = \_ -> First $ Just getter
+          , fSetter = \_ value _ -> value
+          }
 
---------------------------------------------------------------------------------
--- Setter
---------------------------------------------------------------------------------
-
-newtype Setter (key :: Symbol) (fieldType :: Type) (t :: Tree) o =
-  Setter { runSetter :: ( KnownSymbol key
-                        , TypeAtPath o t (key :-> ()) ~ fieldType
-                        )
-                     => Proxy key
-                     -> o
-                     -> fieldType
-                     -> o
-         }
-
-instance ObjectSYM (Setter queryKey queryType) where
-  object _ ap = Setter $ \keyProxy obj val ->
-    runIdentity $ runAp (\s -> Identity $ runSet s keyProxy val obj) ap
-  prim = Setter $ \_ o _ -> o
-
-instance forall queryKey queryType. FieldSYM (Setter queryKey queryType) where
-  newtype Field (Setter queryKey queryType) obj tree fieldType =
-    Set { runSet :: KnownSymbol queryKey
-                 => Proxy queryKey
-                 -> queryType
-                 -> obj
-                 -> fieldType
-        }
-
-  field :: forall field key subTree tree obj repr proxy.
-           ( KnownSymbol key
-           , tree ~ '[ 'Node key 'Singleton field subTree]
-           )
-        => proxy key
-        -> (obj -> field)
-        -> repr subTree field
-        -> Field (Setter queryKey queryType) obj tree field
-  field _ getter _ = Set $ \_ value obj ->
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
-      Nothing -> getter obj
-      Just Refl -> value
-
-  optField :: forall field key subTree tree obj repr proxy.
-              ( KnownSymbol key
-              , tree ~ '[ 'Node key 'Nullable field subTree]
-              )
-           => proxy key
-           -> (obj -> Maybe field)
-           -> repr subTree field
-           -> Field (Setter queryKey queryType) obj tree (Maybe field)
-  optField _ getter _ = Set $ \_ value obj ->
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
-      Nothing -> getter obj
-      Just Refl -> value
-
-  listField :: forall field key subTree tree obj repr proxy.
-               ( KnownSymbol key
-               , tree ~ '[ 'Node key 'List field subTree]
-               )
-            => proxy key
-            -> (obj -> [field])
-            -> repr subTree field
-            -> Field (Setter queryKey queryType) obj tree [field]
-  listField _ getter _ = Set $ \_ value obj ->
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
-      Nothing -> getter obj
-      Just Refl -> value
+-- instance UnionSYM (Optic Choice Applicative queryKey queryType) where
 
 --------------------------------------------------------------------------------
 -- Utility
