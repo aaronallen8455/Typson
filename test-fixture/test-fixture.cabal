@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 013f4b7d7954fa7c3490fe7e41aab654d9055513095aa65956fb880a8f508600
+-- hash: 8ab60c01eb768a151e2441bce4961581de0206545c1c574825efe4be1dac389c
 
 name:           test-fixture
 version:        0.1.0.0
@@ -33,7 +33,7 @@ library
       aeson
     , base >=4.7 && <5
     , hedgehog
-    , microlens
+    , lens
     , typson-core
   default-language: Haskell2010
 
@@ -51,6 +51,7 @@ test-suite spec
     , base >=4.7 && <5
     , bytestring
     , hedgehog
+    , lens
     , microlens
     , tasty
     , tasty-hedgehog

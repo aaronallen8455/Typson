@@ -3,9 +3,9 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 module Typson.Test.Types where
 
+import           Control.Lens
 import           Data.Aeson hiding (object)
 import           Data.Proxy (Proxy(..))
-import           Lens.Micro
 
 import           Typson
 

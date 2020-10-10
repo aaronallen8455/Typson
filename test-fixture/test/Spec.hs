@@ -1,15 +1,15 @@
 {-# LANGUAGE DataKinds, TypeApplications #-}
+import           Control.Lens
 import           Data.Aeson
 import           Hedgehog ((===), forAll, property, tripping)
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
-import           Lens.Micro
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
 import           Typson
-import           Typson.Test.Generators (bazGen, fooGen)
-import           Typson.Test.Types (Baz, Foo, barJ, bazJ, fooJ)
+import           Typson.Test.Generators (bazGen, fooGen, unionGen)
+import           Typson.Test.Types (Baz, Foo, Union, barJ, bazJ, fooJ, unionJ)
 
 main :: IO ()
 main = defaultMain tests
@@ -54,5 +54,28 @@ tests =
 
         -- Setting twice is the same as setting once
         set l dbl (set l dbl baz) === set l dbl baz
+
+    , testProperty "Prism laws" . property $ do
+        b <- forAll HH.bool
+
+        let u1Prism :: Prism' Union Bool
+            u1Prism = fieldPrism (key @"U1") unionJ
+
+        -- preview l (review l b) ≡ Just b
+        preview u1Prism (review u1Prism b) === Just b
+
+        s <- forAll unionGen
+
+        -- preview l s ≡ Just a ⟹  review l a ≡ s
+        let mbA = preview u1Prism s
+        case mbA of
+          Just a -> review u1Prism a === s
+          Nothing -> pure ()
+
+        -- matching l s ≡ Left t ⟹  matching l t ≡ Left s
+        let eT = matching u1Prism s
+        case eT of
+          Left t -> matching u1Prism t === Left s
+          Right _ -> pure ()
     ]
 
