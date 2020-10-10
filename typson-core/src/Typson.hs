@@ -4,4 +4,4 @@ module Typson
 
 import Typson.JsonTree as X
 import Typson.Pathing as X
-import Typson.Lens as X
+import Typson.Optics as X

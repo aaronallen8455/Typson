@@ -8,7 +8,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
-module Typson.Lens
+module Typson.Optics
   ( fieldLens
   , fieldPrism
   ) where
@@ -27,24 +27,19 @@ import           Typson.JsonTree (FieldSYM(..), Multiplicity(..), Node(..), Obje
 import           Typson.Pathing (TypeAtPath, (:->))
 
 --------------------------------------------------------------------------------
--- Lens
+-- Optics for fields
 --------------------------------------------------------------------------------
 
--- both lens and prism work over the same optic type but contain some constraints
--- based on the tree. the optic type is sum and we just have an impossible case
--- for the absurd branch.
-
--- why not constrain this to lens preds and have a fieldPrism constrained to prisms
 fieldLens :: forall key obj tree ty proxy.
              ( KnownSymbol key
-             , TypeAtPath obj tree (key :-> ()) ~ ty
              , GetOpticType (GetMult tree) ~ 'LensOptic
+             , TypeAtPath obj tree (key :-> ()) ~ ty
              )
           => proxy key
           -> Optic key ty tree obj
           -> (forall f. Functor f => (ty -> f ty) -> obj -> f obj)
 fieldLens _ = \case
-  Lens lens -> lens
+  Lens l -> l
   Prism _ -> error "impossible"
 
 fieldPrism :: forall key obj tree ty proxy.
@@ -57,7 +52,7 @@ fieldPrism :: forall key obj tree ty proxy.
            -> (forall f p. (Choice p, Applicative f) => p ty (f ty) -> p obj (f obj))
 fieldPrism _ = \case
   Lens _ -> error "impossible"
-  Prism prism -> prism
+  Prism p -> p
 
 type family GetMult (t :: Tree) :: Multiplicity where
   GetMult ('Node k mult ty subTree ': rest) = mult
@@ -68,20 +63,20 @@ type family GetOpticType (m :: Multiplicity) :: OpticType where
   GetOpticType 'UnionTag = 'PrismOptic
   GetOpticType other     = 'LensOptic
 
---------------------------------------------------------------------------------
--- Optic
---------------------------------------------------------------------------------
-
 data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
   = Lens (forall f. Functor f => (val -> f val) -> o -> f o)
   | Prism (forall f p. (Choice p, Applicative f) => p val (f val) -> p o (f o))
+
+--------------------------------------------------------------------------------
+-- Optics implementations
+--------------------------------------------------------------------------------
 
 instance KnownSymbol queryKey
     => ObjectSYM (Optic queryKey queryType) where
 
   object _ fields = Lens $ \afa obj ->
     case getFirst $ runAp_ fGetter fields of
-      Nothing -> error "the impossible happened!"
+      Nothing -> error "impossible"
       Just getter ->
         let val = getter obj
             setter o a =

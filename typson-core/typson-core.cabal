@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6ac2311d347200fbe8dc5722f084019c1c35e638964affcfc3e2f970a969d4ef
+-- hash: 504970b103d4898d5869b804c91b9c3c02eed15d357f193d06774fe6ca63c2db
 
 name:           typson-core
 version:        0.1.0.0
@@ -28,7 +28,7 @@ library
   exposed-modules:
       Typson
       Typson.JsonTree
-      Typson.Lens
+      Typson.Optics
       Typson.Pathing
   other-modules:
       Paths_typson_core
