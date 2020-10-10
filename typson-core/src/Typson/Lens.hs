@@ -13,6 +13,7 @@ module Typson.Lens
   ) where
 
 import           Data.Functor.Identity (Identity(..))
+import           Data.Profunctor (Profunctor(dimap))
 import           Data.Profunctor.Choice (Choice(..))
 import           Data.Kind (Constraint, Type)
 import           Data.Monoid (First(..))
@@ -21,12 +22,16 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (FieldSYM(..), IFreeAp, Multiplicity(..), NoDuplicateKeys, Node(..), NonRecursive, ObjectSYM(..), Tree, runAp, runAp_)
+import           Typson.JsonTree (FieldSYM(..), IFreeAp, Multiplicity(..), NoDuplicateKeys, Node(..), NonRecursive, ObjectSYM(..), Tree, UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath, (:->))
 
 --------------------------------------------------------------------------------
 -- Lens
 --------------------------------------------------------------------------------
+
+-- both lens and prism work over the same optic type but contain some constraints
+-- based on the tree. the optic type is sum and we just have an impossible case
+-- for the absurd branch.
 
 -- why not constrain this to lens preds and have a fieldPrism constrained to prisms
 fieldLens :: forall key obj tree ty proxy.
@@ -70,10 +75,6 @@ newtype Optic (pPred :: (Type -> Type -> Type) -> Constraint)
 instance KnownSymbol queryKey
     => ObjectSYM (Lens queryKey queryType) where
 
-  object :: (NonRecursive '[o] tree, NoDuplicateKeys o tree)
-         => String
-         -> IFreeAp (Field (Optic ((~) (->)) Functor queryKey queryType) o) tree o
-         -> Lens queryKey queryType tree o
   object _ fields = Optic $ \afa obj ->
     case getFirst $ runAp_ fGetter fields of
       Nothing -> error "the impossible happened!"
@@ -161,28 +162,45 @@ instance KnownSymbol queryKey
           , fSetter = const
           }
 
---instance KnownSymbol queryKey => UnionSYM (Prism queryKey queryType) where
---  --type Result repr union :: Type
---  --data Tag repr :: Type -> Tree -> Type -> Type
---  data Tag (Prism queryKey queryType) obj tree fieldType =
---    Facet
---      { fExtract :: obj -> Maybe queryType
---      , fEmbed   :: fieldType -> obj
---      }
---
---  union :: String
---        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
---        -> repr tree union
---  union _ tags = Optic $ \pafa ->
---
---  tag :: ( KnownSymbol name
---         , tree ~ '[ 'Node name 'UnionTag v subTree]
---         )
---      => proxy name
---      -> (v -> union)
---      -> repr subTree v
---      -> Tag repr union tree (v -> Result repr union)
+instance KnownSymbol queryKey => UnionSYM (Prism queryKey queryType) where
+  type Result (Prism queryKey queryType) union = Maybe queryType
 
+  data Tag (Prism queryKey queryType) union tree vToRes =
+    Facet
+      { fExtract :: vToRes
+      , fEmbed :: First (queryType -> union)
+      }
+
+  union _ tags = Optic $ \pafa ->
+    case getFirst $ runAp_ fEmbed tags of
+      Nothing -> error "impossible"
+      Just embed ->
+        dimap f g $ right' pafa
+        where
+          f u = maybe (Left u) Right
+              $ runIdentity (runAp (Identity . fExtract) tags) u
+          g = either pure (fmap embed)
+
+  tag :: forall name union v subTree tree proxy.
+         ( KnownSymbol name
+         , tree ~ '[ 'Node name 'UnionTag v subTree]
+         )
+      => proxy name
+      -> (v -> union)
+      -> Prism queryKey queryType subTree v
+      -> Tag (Prism queryKey queryType) union tree (v -> Maybe queryType)
+  tag _ embed _ =
+    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(name, v)) of
+      Nothing ->
+        Facet
+          { fExtract = const Nothing
+          , fEmbed   = First Nothing
+          }
+      Just Refl ->
+        Facet
+          { fExtract = Just
+          , fEmbed   = First $ Just embed
+          }
 
 --------------------------------------------------------------------------------
 -- Utility
