@@ -45,7 +45,7 @@ runQueries :: O.MonadOrville conn m
 runQueries = do
   let (JsonSqlParts selector _ fromSql)
         = jsonPathSql (Proxy @("baz3" `Idx` 1 :->> "foo3"))
-                      (getObjectTree bazJ)
+                      bazJ
                       graphField
 
       sql = "SELECT " <> selector <> " FROM entity"

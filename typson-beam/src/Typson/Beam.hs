@@ -32,7 +32,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
             , B.IsPgJSON json
             )
          => proxy path
-         -> repr tree o
+         -> ObjectTree tree o
          -> B.QGenExpr ctxt B.Postgres s (json o)
          -> B.QGenExpr ctxt B.Postgres s (json field) -- TODO can this be JNullable json field?
 jsonPath path _ input =

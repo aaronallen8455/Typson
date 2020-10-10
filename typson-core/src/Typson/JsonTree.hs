@@ -10,6 +10,7 @@ module Typson.JsonTree
   , type Node(..)
   , type Multiplicity(..)
   , ObjectSYM(..)
+  , ObjectTree
   , FieldSYM(..)
   , UnionSYM(..)
   , NonRecursive
@@ -117,7 +118,7 @@ class FieldSYM repr where
             -> repr subTree field
             -> Field repr obj tree [field]
 
-type JsonTree t a = forall repr. ObjectSYM repr => repr t a
+type JsonTree t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 
 key :: Proxy (key :: Symbol)
 key = Proxy

@@ -28,3 +28,11 @@ bazGen =
     <$> barGen
     <*> HH.maybe barGen
     <*> HH.list (Range.constant 0 5) fooGen
+    <*> unionGen
+
+unionGen :: HH.Gen Union
+unionGen =
+  HH.choice [ U1 <$> HH.bool
+            , U2 <$> HH.enumBounded
+            , U3 <$> barGen
+            ]

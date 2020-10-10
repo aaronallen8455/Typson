@@ -28,7 +28,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
             , PostgreSqlJSON json
             )
          => proxy path
-         -> repr tree o
+         -> ObjectTree tree o
          -> E.SqlExpr (E.Value (json o))
          -> E.SqlExpr (E.Value (NullableJSONB field))
 jsonPath path _ input =

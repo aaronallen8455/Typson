@@ -71,6 +71,7 @@ data Baz =
     { baz1 :: Bar
     , baz2 :: Maybe Bar
     , baz3 :: [Foo]
+    , baz4 :: Union
     } deriving (Show, Eq, Ord)
 
 bazJ :: JsonTree _ Baz
@@ -79,12 +80,39 @@ bazJ = object "Baz"
   <<$> field     (key @"baz1") baz1 barJ
   <<*> optField  (key @"baz2") baz2 barJ
   <<*> listField (key @"baz3") baz3 fooJ
+  <<*> field     (key @"baz4") baz4 unionJ
 
 instance ToJSON Baz where
   toJSON = encodeObject bazJ
 
 instance FromJSON Baz where
   parseJSON = decodeObject bazJ
+
+data Union
+  = U1 Bool
+  | U2 Int
+  | U3 Bar
+  deriving (Show, Eq, Ord)
+
+unionJ :: (ObjectSYM repr, UnionSYM repr) => repr _ Union
+unionJ =
+  union "Union" $
+    tags
+      <<$> tag (key @"U1") U1 prim
+      <<*> tag (key @"U2") U2 prim
+      <<*> tag (key @"U3") U3 barJ
+  where
+    tags h1 h2 h3 t =
+      case t of
+        U1 x -> h1 x
+        U2 x -> h2 x
+        U3 x -> h3 x
+
+instance ToJSON Union where
+  toJSON = encodeObject unionJ
+
+instance FromJSON Union where
+  parseJSON = decodeObject unionJ
 
 --------------------------------------------------------------------------------
 -- Query Paths
@@ -174,3 +202,22 @@ listIdxPath3Getter b =
      . ix 0
      . fieldLens (key @"foo1") fooJ
      . ix 1
+
+unionPath1 :: Proxy ("baz4" :->> "U1")
+unionPath1 = Proxy
+
+unionPath1Getter :: Baz -> Maybe Bool
+unionPath1Getter b =
+  b ^? fieldLens (key @"baz4") bazJ
+     . fieldPrism (key @"U1") unionJ
+
+unionPath2 :: Proxy ("baz4" :-> "U3" :-> "bar1" :->> "foo1" `Idx` 0)
+unionPath2 = Proxy
+
+unionPath2Getter :: Baz -> Maybe Bool
+unionPath2Getter b =
+  b ^? fieldLens (key @"baz4") bazJ
+     . fieldPrism (key @"U3") unionJ
+     . fieldLens (key @"bar1") barJ
+     . fieldLens (key @"foo1") fooJ
+     . ix 0

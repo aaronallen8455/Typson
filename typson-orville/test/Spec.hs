@@ -12,7 +12,6 @@ import           Test.Tasty.HUnit
 import qualified Database.Orville.PostgreSQL as O
 import qualified Database.Orville.PostgreSQL.Connection as O
 import qualified Database.Orville.PostgreSQL.Raw as Raw
-import           Typson
 import           Typson.Orville (JsonSqlParts(..), jsonPathSql)
 import           Typson.Test.Generators (bazGen)
 import           Typson.Test.Types
@@ -61,7 +60,15 @@ orvilleTestTree = withRunDb $ \runDb ->
 
       r9 <- runDb (runQuery listIdxQuery3)
       let a9 = map listIdxPath3Getter graphs
-      assertEqual "List Idx Quer 3" (sort r9) (sort a9)
+      assertEqual "List Idx Query 3" (sort r9) (sort a9)
+
+      r10 <- runDb (runQuery unionQuery1)
+      let a10 = map unionPath1Getter graphs
+      assertEqual "Union Query 1" (sort r10) (sort a10)
+
+      r11 <- runDb (runQuery unionQuery2)
+      let a11 = map unionPath2Getter graphs
+      assertEqual "Union Query 2" (sort r11) (sort a11)
   ]
 
 runQuery :: O.MonadOrville conn m => JsonSqlParts a -> m [a]
@@ -74,31 +81,37 @@ runQuery (JsonSqlParts selector _ fromSql) =
 --------------------------------------------------------------------------------
 
 basicQuery1 :: JsonSqlParts Double
-basicQuery1 = jsonPathSql basicPath1 (getObjectTree bazJ) graphField
+basicQuery1 = jsonPathSql basicPath1 bazJ graphField
 
 basicQuery2 :: JsonSqlParts String
-basicQuery2 = jsonPathSql basicPath2 (getObjectTree bazJ) graphField
+basicQuery2 = jsonPathSql basicPath2 bazJ graphField
 
 basicQuery3 :: JsonSqlParts Bar
-basicQuery3 = jsonPathSql basicPath3 (getObjectTree bazJ) graphField
+basicQuery3 = jsonPathSql basicPath3 bazJ graphField
 
 optionalQuery1 :: JsonSqlParts (Maybe Double)
-optionalQuery1 = jsonPathSql optionalPath1 (getObjectTree bazJ) graphField
+optionalQuery1 = jsonPathSql optionalPath1 bazJ graphField
 
 optionalQuery2 :: JsonSqlParts (Maybe Int)
-optionalQuery2 = jsonPathSql optionalPath2 (getObjectTree bazJ) graphField
+optionalQuery2 = jsonPathSql optionalPath2 bazJ graphField
 
 optionalQuery3 :: JsonSqlParts (Maybe Int)
-optionalQuery3 = jsonPathSql optionalPath3 (getObjectTree bazJ) graphField
+optionalQuery3 = jsonPathSql optionalPath3 bazJ graphField
 
 listIdxQuery1 :: JsonSqlParts (Maybe Bool)
-listIdxQuery1 = jsonPathSql listIdxPath1 (getObjectTree bazJ) graphField
+listIdxQuery1 = jsonPathSql listIdxPath1 bazJ graphField
 
 listIdxQuery2 :: JsonSqlParts (Maybe String)
-listIdxQuery2 = jsonPathSql listIdxPath2 (getObjectTree bazJ) graphField
+listIdxQuery2 = jsonPathSql listIdxPath2 bazJ graphField
 
 listIdxQuery3 :: JsonSqlParts (Maybe Bool)
-listIdxQuery3 = jsonPathSql listIdxPath3 (getObjectTree bazJ) graphField
+listIdxQuery3 = jsonPathSql listIdxPath3 bazJ graphField
+
+unionQuery1 :: JsonSqlParts (Maybe Bool)
+unionQuery1 = jsonPathSql unionPath1 bazJ graphField
+
+unionQuery2 :: JsonSqlParts (Maybe Bool)
+unionQuery2 = jsonPathSql unionPath2 bazJ graphField
 
 --------------------------------------------------------------------------------
 -- DB Utils

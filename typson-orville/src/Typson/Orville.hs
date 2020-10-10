@@ -13,7 +13,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Database.HDBC as HDBC
 import qualified Database.Orville.PostgreSQL as O
 
-import           Typson (ReflectPath(..), TypeAtPath, sqlPath)
+import           Typson (ObjectTree, ReflectPath(..), TypeAtPath, sqlPath)
 
 data JsonSqlParts field =
   JsonSqlParts
@@ -28,7 +28,7 @@ jsonPathSql :: ( TypeAtPath o tree path ~ field
                , ToJSON field
                )
             => proxy path
-            -> repr tree o
+            -> ObjectTree tree o
             -> O.FieldDefinition o
             -> JsonSqlParts field
 jsonPathSql pathProxy _ fieldDef =

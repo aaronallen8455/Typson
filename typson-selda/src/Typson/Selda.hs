@@ -28,7 +28,10 @@ import           Typson
 jsonPath :: ( TypeAtPath o tree path ~ target
             , ReflectPath path
             )
-         => proxy path -> repr tree o -> S.Col S.PG (Json o) -> S.Col S.PG (Json target)
+         => proxy path
+         -> ObjectTree tree o
+         -> S.Col S.PG (Json o)
+         -> S.Col S.PG (Json target)
 jsonPath path _ col =
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath col p) ps

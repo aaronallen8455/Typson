@@ -49,8 +49,8 @@ fieldLens _ = \case
 
 fieldPrism :: forall key obj tree ty proxy.
               ( KnownSymbol key
-              , TypeAtPath obj tree (key :-> ()) ~ ty
               , GetOpticType (GetMult tree) ~ 'PrismOptic
+              , TypeAtPath obj tree (key :-> ()) ~ Maybe ty
               )
            => proxy key
            -> Optic key ty tree obj
