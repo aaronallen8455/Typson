@@ -9,6 +9,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Typson.Lens
   ( fieldLens
+  , fieldPrism
   ) where
 
 import           Data.Functor.Identity (Identity(..))
@@ -27,30 +28,32 @@ import           Typson.Pathing (TypeAtPath, (:->))
 -- Lens
 --------------------------------------------------------------------------------
 
-fieldLens :: forall key obj tree ty proxy pPred fPred mult.
+-- why not constrain this to lens preds and have a fieldPrism constrained to prisms
+fieldLens :: forall key obj tree ty proxy.
              ( KnownSymbol key
              , TypeAtPath obj tree (key :-> ()) ~ ty
-             , GetMult tree ~ mult
-             , DerivePreds mult ~ '(pPred, fPred)
              )
           => proxy key
-          -> Optic pPred fPred key ty tree obj
-          -> (forall p f. (pPred p, fPred f) => p ty (f ty) -> p obj (f obj))
-fieldLens _ optic =
-  getOptic optic keyProxy
-  where
-    keyProxy = Proxy @key
+          -> Lens key ty tree obj
+          -> (forall f. Functor f => (ty -> f ty) -> obj -> f obj)
+fieldLens _ = getOptic
 
-type family GetMult (t :: Tree) :: Multiplicity where
-  GetMult ('Node key mult ty subTree ': rest) = mult
-
-type family DerivePreds (mult :: Multiplicity) where
-  DerivePreds 'UnionTag = '(Choice, Applicative) -- Union types make prisms
-  DerivePreds other     = '((~) (->), Functor) -- everything else is a lens
+fieldPrism :: forall key obj tree ty proxy.
+              ( KnownSymbol key
+              , TypeAtPath obj tree (key :-> ()) ~ ty
+              )
+           => proxy key
+           -> Prism key ty tree obj
+           -> (forall f p. (Choice p, Applicative f) => p ty (f ty) -> p obj (f obj))
+fieldPrism _ = getOptic
 
 --------------------------------------------------------------------------------
 -- Optic
 --------------------------------------------------------------------------------
+
+-- better to have separate lens and prism types?
+type Lens = Optic ((~) (->)) Functor
+type Prism = Optic Choice Applicative
 
 newtype Optic (pPred :: (Type -> Type -> Type) -> Constraint)
               (fPred :: (Type -> Type) -> Constraint)
@@ -60,37 +63,34 @@ newtype Optic (pPred :: (Type -> Type -> Type) -> Constraint)
               (o :: Type)
   = Optic
     { getOptic :: forall p f. (pPred p, fPred f)
-               => Proxy key
-               -> p val (f val)
+               => p val (f val)
                -> p o (f o)
     }
 
 instance KnownSymbol queryKey
-    => ObjectSYM (Optic ((~) (->)) Functor queryKey queryType) where
+    => ObjectSYM (Lens queryKey queryType) where
 
   object :: (NonRecursive '[o] tree, NoDuplicateKeys o tree)
          => String
          -> IFreeAp (Field (Optic ((~) (->)) Functor queryKey queryType) o) tree o
-         -> Optic ((~) (->)) Functor queryKey queryType tree o
-  object _ fields = Optic $ \keyProxy afa obj ->
-    case getFirst $ runAp_ (`fGetter` keyProxy) fields of
+         -> Lens queryKey queryType tree o
+  object _ fields = Optic $ \afa obj ->
+    case getFirst $ runAp_ fGetter fields of
       Nothing -> error "the impossible happened!"
       Just getter ->
         let val = getter obj
             setter o a =
-              runIdentity $ runAp (\s -> Identity $ fSetter s keyProxy a o) fields
+              runIdentity $ runAp (\s -> Identity $ fSetter s a o) fields
          in setter obj <$> afa val
 
   prim = error "impossible"
 
-instance forall queryKey queryType. KnownSymbol queryKey
-    => FieldSYM (Optic ((~) (->)) Functor queryKey queryType) where
+instance KnownSymbol queryKey
+    => FieldSYM (Lens queryKey queryType) where
 
-  data Field (Optic ((~) (->)) Functor queryKey queryType) obj tree fieldType =
-    Focus { fGetter :: Proxy queryKey
-                    -> First (obj -> queryType)
-          , fSetter :: Proxy queryKey
-                    -> queryType
+  data Field (Lens queryKey queryType) obj tree fieldType =
+    Focus { fGetter :: First (obj -> queryType)
+          , fSetter :: queryType
                     -> obj
                     -> fieldType
           }
@@ -103,18 +103,18 @@ instance forall queryKey queryType. KnownSymbol queryKey
         => proxy key
         -> (obj -> field)
         -> repr subTree field
-        -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree field
+        -> Field (Lens queryKey queryType) obj tree field
   field _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, field)) of
       Nothing ->
         Focus
-          { fGetter = \_ -> First Nothing
-          , fSetter = \_ _ obj -> getter obj
+          { fGetter = First Nothing
+          , fSetter = \_ obj -> getter obj
           }
       Just Refl ->
         Focus
-          { fGetter = \_ -> First $ Just getter
-          , fSetter = \_ value _ -> value
+          { fGetter = First $ Just getter
+          , fSetter = const
           }
 
   optField :: forall field key subTree tree obj repr proxy.
@@ -125,18 +125,18 @@ instance forall queryKey queryType. KnownSymbol queryKey
            => proxy key
            -> (obj -> Maybe field)
            -> repr subTree field
-           -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree (Maybe field)
+           -> Field (Lens queryKey queryType) obj tree (Maybe field)
   optField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
       Nothing ->
         Focus
-          { fGetter = \_ -> First Nothing
-          , fSetter = \_ _ obj -> getter obj
+          { fGetter = First Nothing
+          , fSetter = \_ obj -> getter obj
           }
       Just Refl ->
         Focus
-          { fGetter = \_ -> First $ Just getter
-          , fSetter = \_ value _ -> value
+          { fGetter = First $ Just getter
+          , fSetter = const
           }
 
   listField :: forall field key subTree tree obj repr proxy.
@@ -147,21 +147,42 @@ instance forall queryKey queryType. KnownSymbol queryKey
             => proxy key
             -> (obj -> [field])
             -> repr subTree field
-            -> Field (Optic ((~) (->)) Functor queryKey queryType) obj tree [field]
+            -> Field (Lens queryKey queryType) obj tree [field]
   listField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
       Nothing ->
         Focus
-          { fGetter = \_ -> First Nothing
-          , fSetter = \_ _ obj -> getter obj
+          { fGetter = First Nothing
+          , fSetter = \_ obj -> getter obj
           }
       Just Refl ->
         Focus
-          { fGetter = \_ -> First $ Just getter
-          , fSetter = \_ value _ -> value
+          { fGetter = First $ Just getter
+          , fSetter = const
           }
 
--- instance UnionSYM (Optic Choice Applicative queryKey queryType) where
+--instance KnownSymbol queryKey => UnionSYM (Prism queryKey queryType) where
+--  --type Result repr union :: Type
+--  --data Tag repr :: Type -> Tree -> Type -> Type
+--  data Tag (Prism queryKey queryType) obj tree fieldType =
+--    Facet
+--      { fExtract :: obj -> Maybe queryType
+--      , fEmbed   :: fieldType -> obj
+--      }
+--
+--  union :: String
+--        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
+--        -> repr tree union
+--  union _ tags = Optic $ \pafa ->
+--
+--  tag :: ( KnownSymbol name
+--         , tree ~ '[ 'Node name 'UnionTag v subTree]
+--         )
+--      => proxy name
+--      -> (v -> union)
+--      -> repr subTree v
+--      -> Tag repr union tree (v -> Result repr union)
+
 
 --------------------------------------------------------------------------------
 -- Utility
