@@ -13,7 +13,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           System.Environment (lookupEnv)
 
-import           Typson (getObjectTree, (:->>), Idx)
+import           Typson ((:->>), Idx)
 import           Typson.Orville (jsonPathSql, JsonSqlParts(..))
 import           TestEntity (Entity(..), entityTable, graphField)
 import           TestGraph (graphGen, bazJ)
