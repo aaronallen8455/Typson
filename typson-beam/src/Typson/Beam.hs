@@ -14,7 +14,7 @@ module Typson.Beam
   ) where
 
 import qualified Data.Aeson as Aeson
-import           Data.Coerce (coerce)
+import           Data.Coerce (Coercible, coerce)
 import           Data.List (foldl')
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromMaybe)
@@ -30,12 +30,13 @@ import           Typson
 jsonPath :: ( TypeAtPath o tree path ~ field
             , ReflectPath path
             , B.IsPgJSON json
+            , Coercible (json field) (JNullable json' field)
             )
          => proxy path
          -> ObjectTree tree o
          -> B.QGenExpr ctxt B.Postgres s (json o)
-         -> B.QGenExpr ctxt B.Postgres s (json field) -- TODO can this be JNullable json field?
-jsonPath path _ input =
+         -> B.QGenExpr ctxt B.Postgres s (JNullable json' field)
+jsonPath path _ input = coerce $
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath input p) ps
   where
