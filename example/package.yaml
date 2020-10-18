@@ -17,14 +17,16 @@ description:         Please see the README on GitHub at <https://github.com/aaro
 
 dependencies:
 - base >= 4.7 && < 5
-- HDBC
-- HDBC-postgresql
 - aeson
 - bytestring
-- hedgehog
-- orville-postgresql
+- esqueleto
+- monad-logger
+- persistent
+- persistent-postgresql
+- persistent-template
+- text
 - typson-core
-- typson-orville
+- typson-esqueleto
 
 executables:
   example-exe:

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2a3526686771689db2c5c592d0d7b5fa19d5d7a604922b9e0d90776f97f7aede
+-- hash: 1e19448ed29e45ac90c55fa98698feb0bf36c5cb953c6e725f9fddeaa468be66
 
 name:           example
 version:        0.1.0.0
@@ -24,20 +24,19 @@ source-repository head
 executable example-exe
   main-is: Main.hs
   other-modules:
-      TestEntity
-      TestGraph
       Paths_example
   hs-source-dirs:
       src
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      HDBC
-    , HDBC-postgresql
-    , aeson
+      aeson
     , base >=4.7 && <5
     , bytestring
-    , hedgehog
-    , orville-postgresql
+    , esqueleto
+    , monad-logger
+    , persistent
+    , persistent-postgresql
+    , persistent-template
     , typson-core
-    , typson-orville
+    , typson-esqueleto
   default-language: Haskell2010
