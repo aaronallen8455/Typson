@@ -4,7 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-module Organism where
+module LifeForm where
 
 import           Data.Aeson (FromJSON(..), ToJSON(..))
 import qualified Data.Text as T
@@ -15,8 +15,8 @@ import           Typson
 -- Define example types
 --------------------------------------------------------------------------------
 
-data Organism =
-  Organism
+data LifeForm =
+  LifeForm
     { classifier :: Classifier
     , name :: T.Text
     } deriving (Eq, Show)
@@ -42,17 +42,17 @@ data Animal =
 -- Json Tree Definitions
 --------------------------------------------------------------------------------
 
-organismJ :: JsonTree _ Organism
-organismJ = object "Organism" $
-  Organism
+lifeFormJ :: JsonTree _ LifeForm
+lifeFormJ = object "LifeForm" $
+  LifeForm
     <<$> field (key @"classifier") classifier classifierJ
     <<*> field (key @"name") name prim
 
-instance FromJSON Organism where
-  parseJSON = decodeObject organismJ
+instance FromJSON LifeForm where
+  parseJSON = decodeObject lifeFormJ
 
-instance ToJSON Organism where
-  toJSON = encodeObject organismJ
+instance ToJSON LifeForm where
+  toJSON = encodeObject lifeFormJ
 
 plantJ :: JsonTree _ Plant
 plantJ = object "Plant" $
@@ -98,9 +98,9 @@ instance ToJSON Classifier where
 -- Specimen
 --------------------------------------------------------------------------------
 
-lion :: Organism
+lion :: LifeForm
 lion =
-  Organism
+  LifeForm
     { name = "Lion"
     , classifier = Fauna
         Animal
@@ -109,9 +109,9 @@ lion =
           }
     }
 
-dog :: Organism
+dog :: LifeForm
 dog =
-  Organism
+  LifeForm
     { name = "Dog"
     , classifier = Fauna
         Animal
@@ -120,9 +120,9 @@ dog =
           }
     }
 
-kelp :: Organism
+kelp :: LifeForm
 kelp =
-  Organism
+  LifeForm
     { name = "Kelp"
     , classifier = Flora
         Plant
@@ -131,9 +131,9 @@ kelp =
           }
     }
 
-bananaTree :: Organism
+bananaTree :: LifeForm
 bananaTree =
-  Organism
+  LifeForm
     { name = "Banana Tree"
     , classifier = Flora
         Plant

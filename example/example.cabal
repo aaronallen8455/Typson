@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7ec343e468ff7e848c75460a4b8b4c353409c50c6cd44a4cfc36438c22ff76e0
+-- hash: fab661d7fa615aed30cc9c90eea2396be54f73a8f86aa5db882f0f8be1699faf
 
 name:           example
 version:        0.1.0.0
@@ -24,7 +24,7 @@ source-repository head
 executable example-exe
   main-is: Main.hs
   other-modules:
-      Organism
+      LifeForm
       Paths_example
   hs-source-dirs:
       src

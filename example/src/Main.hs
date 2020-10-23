@@ -29,20 +29,20 @@ import qualified Database.Persist.TH as P
 
 import           Typson
 import           Typson.Esqueleto
-import           Organism
+import           LifeForm
 
 P.share [P.mkPersist P.sqlSettings, P.mkMigrate "migrateAll"] [P.persistLowerCase|
-OrganismEntity
-  object (JSONB Organism)
+LifeFormEntity
+  object (JSONB LifeForm)
   deriving Show Eq
 |]
 
-organismEntities :: [OrganismEntity]
+organismEntities :: [LifeFormEntity]
 organismEntities
-  = [ OrganismEntity $ JSONB lion
-    , OrganismEntity $ JSONB dog
-    , OrganismEntity $ JSONB kelp
-    , OrganismEntity $ JSONB bananaTree
+  = [ LifeFormEntity $ JSONB lion
+    , LifeFormEntity $ JSONB dog
+    , LifeFormEntity $ JSONB kelp
+    , LifeFormEntity $ JSONB bananaTree
     ]
 
 main :: IO ()
@@ -79,25 +79,25 @@ selectNames
   = fmap coerce -- unwrap newtypes
   . select . from
   $ \e ->
-      pure . jsonPath (Proxy @("name" :-> ())) organismJ
-        $ e ^. OrganismEntityObject
+      pure . jsonPath (Proxy @("name" :-> ())) lifeFormJ
+        $ e ^. LifeFormEntityObject
 
 selectAnimals :: P.SqlPersistT (LoggingT IO) [Animal]
 selectAnimals
   = fmap (mapMaybe coerce)
   . select . from
   $ \e -> do
-      pure . jsonPath (Proxy @("classifier" :->> "fauna")) organismJ
-        $ e ^. OrganismEntityObject
+      pure . jsonPath (Proxy @("classifier" :->> "fauna")) lifeFormJ
+        $ e ^. LifeFormEntityObject
 
-selectGoodPets :: P.SqlPersistT (LoggingT IO) [P.Entity OrganismEntity]
+selectGoodPets :: P.SqlPersistT (LoggingT IO) [P.Entity LifeFormEntity]
 selectGoodPets
   = select . from
   $ \e -> do
       let goodPetPath =
-            jsonPath (Proxy @("classifier" :-> "fauna" :->> "isGoodPet")) organismJ
+            jsonPath (Proxy @("classifier" :-> "fauna" :->> "isGoodPet")) lifeFormJ
 
-      where_ $ goodPetPath (e ^. OrganismEntityObject)
+      where_ $ goodPetPath (e ^. LifeFormEntityObject)
                  ==. val (NullableJSONB (Just True))
       pure e
 
@@ -107,18 +107,18 @@ selectAquaticPlantNames
   . select . from
   $ \e -> do
       let isAquaticPath =
-            jsonPath (Proxy @("classifier" :-> "flora" :->> "isAquatic")) organismJ
-      where_ $ isAquaticPath (e ^. OrganismEntityObject)
+            jsonPath (Proxy @("classifier" :-> "flora" :->> "isAquatic")) lifeFormJ
+      where_ $ isAquaticPath (e ^. LifeFormEntityObject)
                  ==. val (NullableJSONB (Just True))
-      pure $ jsonPath (Proxy @("name" :-> ())) organismJ (e ^. OrganismEntityObject)
+      pure $ jsonPath (Proxy @("name" :-> ())) lifeFormJ (e ^. LifeFormEntityObject)
 
 selectFavoriteFood :: P.SqlPersistT (LoggingT IO) [(T.Text, Maybe T.Text)]
 selectFavoriteFood
   = fmap coerce -- unwrap newtypes
   . select . from
   $ \e -> do
-      let o = e ^. OrganismEntityObject
-          name' = jsonPath (Proxy @("name" :-> ())) organismJ o
+      let o = e ^. LifeFormEntityObject
+          name' = jsonPath (Proxy @("name" :-> ())) lifeFormJ o
           favoriteFood =
-            jsonPath (Proxy @("classifier" :-> "fauna" :->> "favoriteFoods" `Idx` 0)) organismJ o
+            jsonPath (Proxy @("classifier" :-> "fauna" :->> "favoriteFoods" `Idx` 0)) lifeFormJ o
       pure (name', favoriteFood)
