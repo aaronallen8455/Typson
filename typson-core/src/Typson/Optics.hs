@@ -23,16 +23,15 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (Aggregator(..), FieldSYM(..), Multiplicity(..), Node(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
+import           Typson.JsonTree (Aggregator(..), Edge(..), FieldSYM(..), Multiplicity(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath)
 
 --------------------------------------------------------------------------------
 -- Derive Optics for Fields
 --------------------------------------------------------------------------------
 
-fieldLens :: forall key obj tree ty proxy.
-             ( KnownSymbol key
-             , GetOpticType tree ~ 'LensOptic
+fieldLens :: ( KnownSymbol key
+             , tree ~ 'Node 'Product edges
              , TypeAtPath obj tree key ~ ty
              )
           => proxy key
@@ -40,9 +39,8 @@ fieldLens :: forall key obj tree ty proxy.
           -> Lens' obj ty
 fieldLens _ (Lens l) = l
 
-fieldPrism :: forall key obj tree ty proxy.
-              ( KnownSymbol key
-              , GetOpticType tree ~ 'PrismOptic
+fieldPrism :: ( KnownSymbol key
+              , tree ~ 'Node 'Sum edges
               , TypeAtPath obj tree key ~ Maybe ty
               )
            => proxy key
@@ -50,22 +48,13 @@ fieldPrism :: forall key obj tree ty proxy.
            -> Prism' obj ty
 fieldPrism _ (Prism p) = p
 
-data OpticType = LensOptic | PrismOptic
-
-type family GetOpticType (t :: Tree) :: OpticType where
-  GetOpticType ('Tree 'Sum ns) = 'PrismOptic
-  GetOpticType ('Tree 'Product ns) = 'LensOptic
-
 type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
 type Prism' s a = forall p f. (Choice p, Applicative f) => p a (f a) -> p s (f s)
 
---data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
---  = Lens (Lens' o val)
---  | Prism (Prism' o val)
-
 data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
-  Lens :: GetOpticType t ~ 'LensOptic => Lens' o val -> Optic key val t o
-  Prism :: GetOpticType t ~ 'PrismOptic => Prism' o val -> Optic key val t o
+  Lens :: t ~ 'Node 'Product es => Lens' o val -> Optic key val t o
+  Prism :: t ~ 'Node 'Sum es => Prism' o val -> Optic key val t o
+  Absurd :: t ~ 'Leaf => Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -76,14 +65,14 @@ instance KnownSymbol queryKey
 
   object _ fields = Lens $ \afa obj ->
     case getFirst $ runAp_ fGetter fields of
-      Nothing -> error "impossible"
+      Nothing -> error "impossible" -- if it type checked, there's guaranteed to be a match
       Just getter ->
         let val = getter obj
             setter o a =
               runIdentity $ runAp (\s -> Identity $ fSetter s a o) fields
          in setter obj <$> afa val
 
-  prim = error "impossible"
+  prim = Absurd
 
 instance KnownSymbol queryKey
     => FieldSYM (Optic queryKey queryType) where
@@ -97,7 +86,7 @@ instance KnownSymbol queryKey
 
   field :: forall field key subTree tree obj repr proxy.
            ( KnownSymbol key
-           , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
+           , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
            )
         => proxy key
         -> (obj -> field)
@@ -118,7 +107,7 @@ instance KnownSymbol queryKey
 
   optField :: forall field key subTree tree obj repr proxy.
               ( KnownSymbol key
-              , tree ~ 'Tree 'Product '[ 'Node key 'Nullable field subTree]
+              , tree ~ 'Node 'Product '[ 'Edge key 'Nullable field subTree]
               )
            => proxy key
            -> (obj -> Maybe field)
@@ -139,7 +128,7 @@ instance KnownSymbol queryKey
 
   listField :: forall field key subTree tree obj repr proxy.
                ( KnownSymbol key
-               , tree ~ 'Tree 'Product '[ 'Node key 'List field subTree]
+               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
                )
             => proxy key
             -> (obj -> [field])
@@ -169,7 +158,7 @@ instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
 
   union _ tags = Prism $ \pafa ->
     case getFirst $ runAp_ fEmbed tags of
-      Nothing -> error "impossible"
+      Nothing -> error "impossible" -- if it type checked, there's guaranteed to be a match
       Just embed ->
         dimap f g $ right' pafa
         where
@@ -179,7 +168,7 @@ instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
 
   tag :: forall name union v subTree tree proxy.
          ( KnownSymbol name
-         , tree ~ 'Tree 'Sum '[ 'Node name 'Nullable v subTree]
+         , tree ~ 'Node 'Sum '[ 'Edge name 'Nullable v subTree]
          )
       => proxy name
       -> (v -> union)

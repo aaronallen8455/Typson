@@ -22,7 +22,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Node(..), Multiplicity(..), Tree(..))
+import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -45,25 +45,31 @@ typeAtPath _ _ = Proxy
 type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- Final key matches, return the field's type
   TypeAtPath obj
-             ('Tree aggr ('Node fieldName q field subTree ': rest))
+             ('Node aggr ('Edge fieldName q field subTree ': rest))
              fieldName
     = ApResult q field
 
   -- Final array index key matches, return the field's type
   TypeAtPath obj
-             ('Tree aggr ('Node fieldName 'List field subTree ': rest))
+             ('Node aggr ('Edge fieldName 'List field subTree ': rest))
+             (Idx fieldName idx)
+    = ApQuantity 'List field
+
+  -- Final array index key for primitive list field matches, return the field's type
+  TypeAtPath obj
+             ('Node aggr ('Edge fieldName q [field] 'Leaf ': rest))
              (Idx fieldName idx)
     = ApQuantity 'List field
 
   -- Require an index when accessing list element
   TypeAtPath obj
-             ('Tree aggr ('Node fieldName 'List field subTree ': rest))
+             ('Node aggr ('Edge fieldName 'List field subTree ': rest))
              (Idx fieldName idx :-> nextKey)
     = ApQuantity 'List (TypeAtPath field subTree nextKey)
 
   -- List index not provided
   TypeAtPath obj
-             ('Tree aggr ('Node key 'List field subTree ': rest))
+             ('Node aggr ('Edge key 'List field subTree ': rest))
              (key :-> nextKey)
     = TypeError ('Text "Invalid JSON path: you must provide an index for list field \""
            ':<>: 'Text key
@@ -73,23 +79,24 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath obj
-             ('Tree aggr ('Node fieldName q field subFields ': rest))
+             ('Node aggr ('Edge fieldName q field subFields ': rest))
              (fieldName :-> nextKey)
     = ApQuantity q (TypeAtPath field subFields nextKey)
 
   -- Key doesn't match, try the next field
   TypeAtPath obj
-             ('Tree aggr ('Node fieldName q field subFields ': rest))
+             ('Node aggr ('Edge fieldName q field subFields ': rest))
              key
-    = TypeAtPath obj ('Tree aggr rest) key
+    = TypeAtPath obj ('Node aggr rest) key
 
   -- No match for the key
-  TypeAtPath obj ('Tree aggr '[]) (key :: Symbol) = TypeError (MissingKey obj key)
-  TypeAtPath obj ('Tree aggr '[]) (Idx key idx :-> nextKey) = TypeError (MissingKey obj key)
-  TypeAtPath obj ('Tree aggr '[]) ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
+  TypeAtPath obj tree (key :: Symbol) = TypeError (MissingKey obj key)
+  TypeAtPath obj tree ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
+  TypeAtPath obj tree (Idx key idx) = TypeError (MissingKey obj key)
+  TypeAtPath obj tree (Idx key idx :-> nextKey) = TypeError (MissingKey obj key)
 
   -- Path is constructed with invalid types
-  TypeAtPath obj t p = TypeError ('Text "You must use valid JSON path syntax.")
+  TypeAtPath obj t p = TypeError ('Text "You must use valid path syntax.")
 
 type MissingKey obj key
   =    ('Text "JSON key not present in "

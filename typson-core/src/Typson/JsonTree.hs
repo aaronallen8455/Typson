@@ -7,7 +7,7 @@
 module Typson.JsonTree
   ( JsonTree
   , type Tree(..)
-  , type Node(..)
+  , type Edge(..)
   , type Aggregator(..)
   , type Multiplicity(..)
   , ObjectSYM(..)
@@ -42,58 +42,49 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError,
 -- Type-level JSON Tree Representation
 --------------------------------------------------------------------------------
 
-data Tree = Tree Aggregator [Node]
+-- | This is the type used to represent the JSON form of a haskell type. It is
+-- only used at the type level via the @DataKinds@ extension.
+data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
+          | Leaf
 
-data Node
-  = Node Symbol Multiplicity Type Tree
+data Edge
+  = Edge
+      Symbol       -- ^ The json field key
+      Multiplicity -- ^ The multiplicity of the field's value
+      Type         -- ^ The type of the value at the key
+      Tree         -- ^ 'Tree' for the value's type
 
 data Aggregator
-  = Product
-  | Sum
+  = Product -- ^ Object has all fields from a list
+  | Sum     -- ^ Object has exactly one field from a list of possible fields
 
 data Multiplicity
-  = List
-  | Singleton
-  | Nullable
+  = List      -- ^ Corresponds to a JSON array
+  | Singleton -- ^ A non-null field
+  | Nullable  -- ^ A field that can be @null@
 
 --------------------------------------------------------------------------------
 -- Final-tagless "Symantics" for Object Construction
 --------------------------------------------------------------------------------
 
-class UnionSYM (repr :: Tree -> Type -> Type) where
-  type Result repr union :: Type
-  data Tag repr :: Type -> Tree -> Type -> Type
-
-  union :: tree ~ 'Tree 'Sum nodes
-        => String
-        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
-        -> repr tree union
-
-  tag :: ( KnownSymbol name
-         , tree ~ 'Tree 'Sum '[ 'Node name 'Nullable v subTree]
-         )
-      => proxy name
-      -> (v -> union)
-      -> repr subTree v
-      -> Tag repr union tree (v -> Result repr union)
-
+-- | Used to interpret JSON trees for haskell record types.
 class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
-  object :: ( t ~ 'Tree 'Product nodes
-            , NonRecursive '[o] nodes
-            , NoDuplicateKeys o nodes
+  object :: ( t ~ 'Node 'Product edges
+            , NonRecursive '[o] edges
+            , NoDuplicateKeys o edges
             )
          => String -> IFreeAp (Field repr o) t o -> repr t o
 
   prim :: ( FromJSON v
           , ToJSON v
           )
-       => repr ('Tree 'Product '[]) v
+       => repr 'Leaf v
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
 
   field :: ( KnownSymbol key
-           , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
+           , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
            )
         => proxy key
         -> (obj -> field)
@@ -101,7 +92,7 @@ class FieldSYM repr where
         -> Field repr obj tree field
 
   optField :: ( KnownSymbol key
-              , tree ~ 'Tree 'Product '[ 'Node key 'Nullable field subTree]
+              , tree ~ 'Node 'Product '[ 'Edge key 'Nullable field subTree]
               )
            => proxy key
            -> (obj -> Maybe field)
@@ -109,7 +100,7 @@ class FieldSYM repr where
            -> Field repr obj tree (Maybe field)
 
   optFieldDef :: ( KnownSymbol key
-                 , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
+                 , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
                  )
               => proxy key
               -> (obj -> field)
@@ -119,12 +110,33 @@ class FieldSYM repr where
   optFieldDef p getter _ sub = field p getter sub
 
   listField :: ( KnownSymbol key
-               , tree ~ 'Tree 'Product '[ 'Node key 'List field subTree]
+               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
                )
             => proxy key
             -> (obj -> [field])
             -> repr subTree field
             -> Field repr obj tree [field]
+
+-- | Used to interpret JSON trees for haskell sum types.
+class UnionSYM (repr :: Tree -> Type -> Type) where
+  type Result repr union :: Type
+  data Tag repr :: Type -> Tree -> Type -> Type
+
+  union :: ( tree ~ 'Node 'Sum edges
+           , NonRecursive '[union] edges
+           , NoDuplicateKeys union edges
+           )
+        => String
+        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
+        -> repr tree union
+
+  tag :: ( KnownSymbol name
+         , tree ~ 'Node 'Sum '[ 'Edge name 'Nullable v subTree]
+         )
+      => proxy name
+      -> (v -> union)
+      -> repr subTree v
+      -> Tag repr union tree (v -> Result repr union)
 
 type JsonTree t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 
@@ -135,50 +147,19 @@ key = Proxy
 -- Implementations
 --------------------------------------------------------------------------------
 
+-- | Use a 'Tree' to encode a type as an Aeson 'Value'
 newtype ObjectEncoder (t :: Tree) o =
   ObjectEncoder { encodeObject :: o -> Aeson.Value }
 
+-- | Use a 'Tree' to decode a type from an Aeson 'Value'
 newtype ObjectDecoder (t :: Tree) o =
   ObjectDecoder { decodeObject :: Aeson.Value -> Aeson.Parser o }
 
 data TreeProxy (t :: Tree) o = TreeProxy
 
+-- | Used to pass a 'Tree' around at the value level.
 newtype ObjectTree (t :: Tree) o =
   ObjectTree { getObjectTree :: TreeProxy t o }
-
-instance UnionSYM ObjectEncoder where
-  newtype Tag ObjectEncoder u t a =
-    TagEncoder { unTagEncoder :: a }
-  type Result ObjectEncoder u = Aeson.Value
-  union _ tags = ObjectEncoder $
-    runIdentity (runAp (Identity . unTagEncoder) tags)
-  tag name _ valueEncoder =
-    TagEncoder $ \v ->
-      Aeson.object
-        [ T.pack (symbolVal name) .= encodeObject valueEncoder v ]
-
-instance UnionSYM ObjectDecoder where
-  newtype Tag ObjectDecoder u t a =
-    TagDecoder { unTagDecoder :: HM.HashMap T.Text (Aeson.Value -> Aeson.Parser u) }
-  type Result ObjectDecoder u = ()
-  union name tags = ObjectDecoder .
-    Aeson.withObject name $ \obj -> do
-      let decoderMap = runAp_ unTagDecoder tags
-          decodeVal k v nxt =
-            case HM.lookup k decoderMap of
-              Nothing -> nxt
-              Just tagDecoder ->
-                tagDecoder v <|> nxt
-      HM.foldrWithKey decodeVal (fail "Unable to find a matching tag") obj
-  tag name constr valueDecoder =
-    TagDecoder . HM.singleton (T.pack $ symbolVal name)
-      $ fmap constr . decodeObject valueDecoder
-
-instance UnionSYM ObjectTree where
-  data Tag ObjectTree u t a = TagProxy
-  type Result ObjectTree u = ()
-  union _ _ = ObjectTree TreeProxy
-  tag _ _ _ = TagProxy
 
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
@@ -226,23 +207,57 @@ instance FieldSYM ObjectDecoder where
     so <- obj .: T.pack (symbolVal ky)
     traverse d so
 
+instance UnionSYM ObjectEncoder where
+  newtype Tag ObjectEncoder u t a =
+    TagEncoder { unTagEncoder :: a }
+  type Result ObjectEncoder u = Aeson.Value
+  union _ tags = ObjectEncoder $
+    runIdentity (runAp (Identity . unTagEncoder) tags)
+  tag name _ valueEncoder =
+    TagEncoder $ \v ->
+      Aeson.object
+        [ T.pack (symbolVal name) .= encodeObject valueEncoder v ]
+
+instance UnionSYM ObjectDecoder where
+  newtype Tag ObjectDecoder u t a =
+    TagDecoder { unTagDecoder :: HM.HashMap T.Text (Aeson.Value -> Aeson.Parser u) }
+  type Result ObjectDecoder u = ()
+  union name tags = ObjectDecoder .
+    Aeson.withObject name $ \obj -> do
+      let decoderMap = runAp_ unTagDecoder tags
+          decodeVal k v nxt =
+            case HM.lookup k decoderMap of
+              Nothing -> nxt
+              Just tagDecoder ->
+                tagDecoder v <|> nxt
+      HM.foldrWithKey decodeVal (fail "Unable to find a matching tag") obj
+  tag name constr valueDecoder =
+    TagDecoder . HM.singleton (T.pack $ symbolVal name)
+      $ fmap constr . decodeObject valueDecoder
+
+instance UnionSYM ObjectTree where
+  data Tag ObjectTree u t a = TagProxy
+  type Result ObjectTree u = ()
+  union _ _ = ObjectTree TreeProxy
+  tag _ _ _ = TagProxy
+
 --------------------------------------------------------------------------------
 -- No Duplicate Keys Constraint
 --------------------------------------------------------------------------------
 
-type family NoDuplicateKeys (obj :: Type) (nodes :: [Node]) :: Constraint where
-  NoDuplicateKeys obj ('Node key q ty subTree ': rest)
+type family NoDuplicateKeys (obj :: Type) (edges :: [Edge]) :: Constraint where
+  NoDuplicateKeys obj ('Edge key q ty subTree ': rest)
     = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
   NoDuplicateKeys obj '[] = ()
 
-type family KeyNotPresent (key :: Symbol) (obj :: Type) (nodes :: [Node]) :: Constraint where
-  KeyNotPresent key obj ('Node key q ty subTree ': rest)
+type family KeyNotPresent (key :: Symbol) (obj :: Type) (edges :: [Edge]) :: Constraint where
+  KeyNotPresent key obj ('Edge key q ty subTree ': rest)
     = TypeError ('Text "Duplicate JSON key \""
             ':<>: 'Text key
             ':<>: 'Text "\" in object "
             ':<>: 'ShowType obj
                 )
-  KeyNotPresent key obj ('Node notKey q ty subTree ': rest)
+  KeyNotPresent key obj ('Edge notKey q ty subTree ': rest)
     = KeyNotPresent key obj rest
   KeyNotPresent key obj '[] = ()
 
@@ -250,40 +265,48 @@ type family KeyNotPresent (key :: Symbol) (obj :: Type) (nodes :: [Node]) :: Con
 -- No Recursion Constraint
 --------------------------------------------------------------------------------
 
--- TODO Is this beneficial?
-type family NonRecursive (visited :: [Type]) (nodes :: [Node]) :: Constraint where
-  NonRecursive visited ('Node key q ty ('Tree aggr subTree) ': rest)
+-- TODO How beneficial is this?
+type family NonRecursive (visited :: [Type]) (edges :: [Edge]) :: Constraint where
+  NonRecursive visited ('Edge key q ty tree ': rest)
     = If (Elem ty visited)
          (TypeError ('Text "Recursive JSON types are not allowed."))
-         (NonRecursive visited rest, NonRecursive (ty ': visited) subTree)
+         (NonRecursive visited rest, NonRecursive (ty ': visited) (GetEdges tree))
   NonRecursive visited '[] = ()
+
+type family GetEdges (t :: Tree) :: [Edge] where
+  GetEdges ('Node aggr edges) = edges
+  GetEdges 'Leaf = '[]
 
 type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
   Elem needle (needle ': rest) = 'True
   Elem needle (head ': rest) = Elem needle rest
   Elem needle '[] = 'False
 
--- TODO can the two constraints be melded?
+-- TODO can the two constraints be fused?
 
 --------------------------------------------------------------------------------
 -- Free Indexed Applicative
 --------------------------------------------------------------------------------
 
+-- | An Indexed Free Applicative variant that is used to build 'Tree's by
+-- gathering up all the edges.
 data IFreeAp (f :: Tree -> Type -> Type) (t :: Tree) (a :: Type) where
-  Pure :: a -> IFreeAp f ('Tree aggr '[]) a
-  Ap   :: IFreeAp f ('Tree aggr nodes) (a -> b)
-       -> f ('Tree aggr '[st]) a
-       -> IFreeAp f ('Tree aggr (st ': nodes)) b
+  Pure :: a -> IFreeAp f ('Node aggr '[]) a
+  Ap   :: IFreeAp f ('Node aggr edges) (a -> b)
+       -> f ('Node aggr '[edge]) a
+       -> IFreeAp f ('Node aggr (edge ': edges)) b
 
+-- | Intended to be used like '<$>'
 (<<$>) :: (a -> b)
-       -> f ('Tree aggr '[st]) a
-       -> IFreeAp f ('Tree aggr '[st]) b
+       -> f ('Node aggr '[edge]) a
+       -> IFreeAp f ('Node aggr '[edge]) b
 f <<$> i = Pure f `Ap` i
 infixl 4 <<$>
 
-(<<*>) :: IFreeAp f ('Tree aggr nodes) (a -> b)
-       -> f ('Tree aggr '[st]) a
-       -> IFreeAp f ('Tree aggr (st ': nodes)) b
+-- | Intended to be used like '<*>'
+(<<*>) :: IFreeAp f ('Node aggr edges) (a -> b)
+       -> f ('Node aggr '[edge]) a
+       -> IFreeAp f ('Node aggr (edge ': edges)) b
 (<<*>) = Ap
 infixl 4 <<*>
 
