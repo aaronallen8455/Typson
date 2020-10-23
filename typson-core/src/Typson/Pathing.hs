@@ -13,7 +13,6 @@ module Typson.Pathing
   , sqlPath
   , PathComponent(..)
   , type (:->)
-  , type (:->>)
   , type Idx
   ) where
 
@@ -31,8 +30,6 @@ import           Typson.JsonTree (Node(..), Multiplicity(..), Tree)
 
 data key :-> path -- key is polykinded, can be a Symbol or an Idx
 infixr 4 :->
-type key :->> lastKey = key :-> lastKey :-> ()
-infixr 4 :->>
 
 data Idx (key :: Symbol) (idx :: Nat) -- used to access element of a list
 
@@ -45,23 +42,23 @@ typeAtPath :: proxy path
            -> Proxy (TypeAtPath obj tree path)
 typeAtPath _ _ = Proxy
 
-type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
+type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- Final key matches, return the field's type
   TypeAtPath obj
              ('Node fieldName q field subTree ': rest)
-             (fieldName :-> ())
+             fieldName
     = ApResult q field
 
   -- Final array index key matches, return the field's type
   TypeAtPath obj
              ('Node fieldName 'List field subTree ': rest)
-             (Idx fieldName idx :-> ())
+             (Idx fieldName idx)
     = ApQuantity 'List field
 
   -- Final array index key for primitive list field matches, return the field's type
   TypeAtPath obj
              ('Node fieldName q [field] '[] ': rest)
-             (Idx fieldName idx :-> ())
+             (Idx fieldName idx)
     = ApQuantity 'List field
 
   -- Require an index when accessing list element
@@ -89,8 +86,8 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
   -- Key doesn't match, try the next field
   TypeAtPath obj
              ('Node fieldName q field subFields ': rest)
-             (key :-> nextKey)
-    = TypeAtPath obj rest (key :-> nextKey)
+             key
+    = TypeAtPath obj rest key
 
   -- No match for key with list index
   TypeAtPath obj '[] (Idx key idx :-> nextKey)
@@ -109,6 +106,10 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) path :: Type where
            ':<>: 'Text key
            ':<>: 'Text "\"" -- this is requiring UndecidableInstances
                 )
+
+  -- Rather than have additional instances for ends that don't match, retry
+  -- with a path that will match the above two cases.
+  TypeAtPath obj '[] key = TypeAtPath obj '[] (key :-> ())
 
 --------------------------------------------------------------------------------
 -- Utilities
@@ -141,24 +142,24 @@ data PathComponent
 class ReflectPath path where
   reflectPath :: proxy path -> NE.NonEmpty PathComponent
 
-instance KnownSymbol key => ReflectPath ((key :: Symbol) :-> ()) where
+instance KnownSymbol key => ReflectPath (key :: Symbol) where
   reflectPath _ = Key (symbolVal (Proxy @key)) NE.:| []
 
 instance (KnownSymbol key, KnownNat idx)
-      => ReflectPath (Idx key idx :-> ()) where
+      => ReflectPath (Idx key idx) where
   reflectPath _ = Key (symbolVal (Proxy @key))
             NE.:| [Idx (natVal (Proxy @idx))]
 
-instance (KnownSymbol key, ReflectPath (path :-> rest))
-      => ReflectPath ((key :: Symbol) :-> path :-> rest) where
+instance (KnownSymbol key, ReflectPath path)
+      => ReflectPath ((key :: Symbol) :-> path) where
   reflectPath _ = Key (symbolVal (Proxy @key))
-            NE.<| reflectPath (Proxy @(path :-> rest))
+            NE.<| reflectPath (Proxy @path)
 
-instance (KnownSymbol key, KnownNat idx, ReflectPath (path :-> rest))
-      => ReflectPath (Idx key idx :-> path :-> rest) where
+instance (KnownSymbol key, KnownNat idx, ReflectPath path)
+      => ReflectPath (Idx key idx :-> path) where
   reflectPath _ = Key (symbolVal (Proxy @key))
             NE.<| Idx (natVal (Proxy @idx))
-            NE.<| reflectPath (Proxy @(path :-> rest))
+            NE.<| reflectPath (Proxy @path)
 
 -- Reflect a path as a postgres SQL string
 sqlPath :: ReflectPath path => proxy path -> String

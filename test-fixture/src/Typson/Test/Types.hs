@@ -118,7 +118,7 @@ instance FromJSON Union where
 -- Query Paths
 --------------------------------------------------------------------------------
 
-basicPath1 :: Proxy ("baz1" :->> "bar3")
+basicPath1 :: Proxy ("baz1" :-> "bar3")
 basicPath1 = Proxy
 
 basicPath1Getter :: Baz -> Double
@@ -126,7 +126,7 @@ basicPath1Getter b =
   b ^. fieldLens (key @"baz1") bazJ
      . fieldLens (key @"bar3") barJ
 
-basicPath2 :: Proxy ("baz1" :-> "bar1" :->> "foo3")
+basicPath2 :: Proxy ("baz1" :-> "bar1" :-> "foo3")
 basicPath2 = Proxy
 
 basicPath2Getter :: Baz -> String
@@ -135,14 +135,14 @@ basicPath2Getter b =
      . fieldLens (key @"bar1") barJ
      . fieldLens (key @"foo3") fooJ
 
-basicPath3 :: Proxy ("baz1" :-> ())
+basicPath3 :: Proxy "baz1"
 basicPath3 = Proxy
 
 basicPath3Getter :: Baz -> Bar
 basicPath3Getter b =
   b ^. fieldLens (key @"baz1") bazJ
 
-optionalPath1 :: Proxy ("baz1" :-> "bar2" :->> "foo4")
+optionalPath1 :: Proxy ("baz1" :-> "bar2" :-> "foo4")
 optionalPath1 = Proxy
 
 optionalPath1Getter :: Baz -> Maybe Double
@@ -152,7 +152,7 @@ optionalPath1Getter b =
      . _Just
      . fieldLens (key @"foo4") fooJ
 
-optionalPath2 :: Proxy ("baz1" :-> "bar2" :->> "foo2")
+optionalPath2 :: Proxy ("baz1" :-> "bar2" :-> "foo2")
 optionalPath2 = Proxy
 
 optionalPath2Getter :: Baz -> Maybe Int
@@ -163,7 +163,7 @@ optionalPath2Getter b =
      . fieldLens (key @"foo2") fooJ
      . _Just
 
-optionalPath3 :: Proxy ("baz2" :-> "bar1" :->> "foo2")
+optionalPath3 :: Proxy ("baz2" :-> "bar1" :-> "foo2")
 optionalPath3 = Proxy
 
 optionalPath3Getter :: Baz -> Maybe Int
@@ -174,7 +174,7 @@ optionalPath3Getter b =
      . fieldLens (key @"foo2") fooJ
      . _Just
 
-listIdxPath1 :: Proxy ("baz1" :-> "bar1" :->> "foo1" `Idx` 2)
+listIdxPath1 :: Proxy ("baz1" :-> "bar1" :-> "foo1" `Idx` 2)
 listIdxPath1 = Proxy
 
 listIdxPath1Getter :: Baz -> Maybe Bool
@@ -184,7 +184,7 @@ listIdxPath1Getter b =
      . fieldLens (key @"foo1") fooJ
      . ix 2
 
-listIdxPath2 :: Proxy ("baz3" `Idx` 0 :->> "foo3")
+listIdxPath2 :: Proxy ("baz3" `Idx` 0 :-> "foo3")
 listIdxPath2 = Proxy
 
 listIdxPath2Getter :: Baz -> Maybe String
@@ -193,7 +193,7 @@ listIdxPath2Getter b =
      . ix 0
      . fieldLens (key @"foo3") fooJ
 
-listIdxPath3 :: Proxy ("baz3" `Idx` 0 :->> "foo1" `Idx` 1)
+listIdxPath3 :: Proxy ("baz3" `Idx` 0 :-> "foo1" `Idx` 1)
 listIdxPath3 = Proxy
 
 listIdxPath3Getter :: Baz -> Maybe Bool
@@ -203,7 +203,7 @@ listIdxPath3Getter b =
      . fieldLens (key @"foo1") fooJ
      . ix 1
 
-unionPath1 :: Proxy ("baz4" :->> "U1")
+unionPath1 :: Proxy ("baz4" :-> "U1")
 unionPath1 = Proxy
 
 unionPath1Getter :: Baz -> Maybe Bool
@@ -211,7 +211,7 @@ unionPath1Getter b =
   b ^? fieldLens (key @"baz4") bazJ
      . fieldPrism (key @"U1") unionJ
 
-unionPath2 :: Proxy ("baz4" :-> "U3" :-> "bar1" :->> "foo1" `Idx` 0)
+unionPath2 :: Proxy ("baz4" :-> "U3" :-> "bar1" :-> "foo1" `Idx` 0)
 unionPath2 = Proxy
 
 unionPath2Getter :: Baz -> Maybe Bool

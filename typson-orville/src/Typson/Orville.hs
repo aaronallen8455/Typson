@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
 module Typson.Orville
   ( jsonPathSql
   , json
@@ -27,7 +28,7 @@ jsonPathSql :: ( TypeAtPath o tree path ~ field
                , FromJSON field -- TODO json constraints needed?
                , ToJSON field
                )
-            => proxy path
+            => proxy (path :: k)
             -> ObjectTree tree o
             -> O.FieldDefinition o
             -> JsonSqlParts field

@@ -79,7 +79,7 @@ selectNames
   = fmap coerce -- unwrap newtypes
   . select . from
   $ \e ->
-      pure . jsonPath (Proxy @("name" :-> ())) lifeFormJ
+      pure . jsonPath (Proxy @"name") lifeFormJ
         $ e ^. LifeFormEntityObject
 
 selectAnimals :: P.SqlPersistT (LoggingT IO) [Animal]
@@ -87,7 +87,7 @@ selectAnimals
   = fmap (mapMaybe coerce)
   . select . from
   $ \e -> do
-      pure . jsonPath (Proxy @("classifier" :->> "fauna")) lifeFormJ
+      pure . jsonPath (Proxy @("classifier" :-> "fauna")) lifeFormJ
         $ e ^. LifeFormEntityObject
 
 selectGoodPets :: P.SqlPersistT (LoggingT IO) [P.Entity LifeFormEntity]
@@ -95,7 +95,7 @@ selectGoodPets
   = select . from
   $ \e -> do
       let goodPetPath =
-            jsonPath (Proxy @("classifier" :-> "fauna" :->> "isGoodPet")) lifeFormJ
+            jsonPath (Proxy @("classifier" :-> "fauna" :-> "isGoodPet")) lifeFormJ
 
       where_ $ goodPetPath (e ^. LifeFormEntityObject)
                  ==. val (NullableJSONB (Just True))
@@ -107,10 +107,10 @@ selectAquaticPlantNames
   . select . from
   $ \e -> do
       let isAquaticPath =
-            jsonPath (Proxy @("classifier" :-> "flora" :->> "isAquatic")) lifeFormJ
+            jsonPath (Proxy @("classifier" :-> "flora" :-> "isAquatic")) lifeFormJ
       where_ $ isAquaticPath (e ^. LifeFormEntityObject)
                  ==. val (NullableJSONB (Just True))
-      pure $ jsonPath (Proxy @("name" :-> ())) lifeFormJ (e ^. LifeFormEntityObject)
+      pure $ jsonPath (Proxy @("name")) lifeFormJ (e ^. LifeFormEntityObject)
 
 selectFavoriteFood :: P.SqlPersistT (LoggingT IO) [(T.Text, Maybe T.Text)]
 selectFavoriteFood
@@ -118,7 +118,7 @@ selectFavoriteFood
   . select . from
   $ \e -> do
       let o = e ^. LifeFormEntityObject
-          name' = jsonPath (Proxy @("name" :-> ())) lifeFormJ o
+          name' = jsonPath (Proxy @"name") lifeFormJ o
           favoriteFood =
-            jsonPath (Proxy @("classifier" :-> "fauna" :->> "favoriteFoods" `Idx` 0)) lifeFormJ o
+            jsonPath (Proxy @("classifier" :-> "fauna" :-> "favoriteFoods" `Idx` 0)) lifeFormJ o
       pure (name', favoriteFood)

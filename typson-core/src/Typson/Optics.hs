@@ -24,7 +24,7 @@ import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           Typson.JsonTree (FieldSYM(..), Multiplicity(..), Node(..), ObjectSYM(..), Tree, UnionSYM(..), runAp, runAp_)
-import           Typson.Pathing (TypeAtPath, (:->))
+import           Typson.Pathing (TypeAtPath)
 
 --------------------------------------------------------------------------------
 -- Derive Optics for Fields
@@ -33,7 +33,7 @@ import           Typson.Pathing (TypeAtPath, (:->))
 fieldLens :: forall key obj tree ty proxy.
              ( KnownSymbol key
              , GetOpticType tree ~ 'LensOptic
-             , TypeAtPath obj tree (key :-> ()) ~ ty
+             , TypeAtPath obj tree key ~ ty
              )
           => proxy key
           -> Optic key ty tree obj
@@ -45,7 +45,7 @@ fieldLens _ = \case
 fieldPrism :: forall key obj tree ty proxy.
               ( KnownSymbol key
               , GetOpticType tree ~ 'PrismOptic
-              , TypeAtPath obj tree (key :-> ()) ~ Maybe ty
+              , TypeAtPath obj tree key ~ Maybe ty
               )
            => proxy key
            -> Optic key ty tree obj

@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PolyKinds #-}
 module Typson.Selda
   ( jsonPath
   , Json(..)
@@ -28,7 +29,7 @@ import           Typson
 jsonPath :: ( TypeAtPath o tree path ~ target
             , ReflectPath path
             )
-         => proxy path
+         => proxy (path :: k)
          -> ObjectTree tree o
          -> S.Col S.PG (Json o)
          -> S.Col S.PG (Json target)

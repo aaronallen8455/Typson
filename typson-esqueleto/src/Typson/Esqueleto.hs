@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PolyKinds #-}
 module Typson.Esqueleto
   ( NullableJSONB(..)
   , PostgreSqlJSON
@@ -27,7 +28,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
             , ReflectPath path
             , PostgreSqlJSON json
             )
-         => proxy path
+         => proxy (path :: k)
          -> ObjectTree tree o
          -> E.SqlExpr (E.Value (json o))
          -> E.SqlExpr (E.Value (NullableJSONB field))

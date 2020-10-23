@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE PolyKinds #-}
 module Typson.Beam
   ( JNullable(..)
   , nullableJsonb
@@ -15,6 +16,7 @@ module Typson.Beam
 
 import qualified Data.Aeson as Aeson
 import           Data.Coerce (Coercible, coerce)
+import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromMaybe)
@@ -32,7 +34,7 @@ jsonPath :: ( TypeAtPath o tree path ~ field
             , B.IsPgJSON json
             , Coercible (json field) (JNullable json' field)
             )
-         => proxy path
+         => proxy (path :: k)
          -> ObjectTree tree o
          -> B.QGenExpr ctxt B.Postgres s (json o)
          -> B.QGenExpr ctxt B.Postgres s (JNullable json' field)
@@ -52,10 +54,13 @@ newtype JNullable json a = JNullable (json a)
   deriving (Ord, Eq, Show) via json a
   deriving B.IsPgJSON via json
 
-deriving via (json a) instance (B.HasSqlValueSyntax syn (json a))
+deriving via (json a :: Type) instance (B.HasSqlValueSyntax syn (json a))
   => B.HasSqlValueSyntax syn (JNullable json a)
 
-instance (Pg.FromField (json a), B.Typeable a, B.Typeable json)
+instance ( Pg.FromField (json a :: Type)
+         , B.Typeable (a :: Type)
+         , B.Typeable json
+         )
   => B.FromBackendRow B.Postgres (JNullable json a)
 
 instance Pg.FromField (json a) => Pg.FromField (JNullable json a) where
