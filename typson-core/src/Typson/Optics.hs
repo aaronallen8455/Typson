@@ -67,6 +67,10 @@ data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
   = Lens (Lens' o val)
   | Prism (Prism' o val)
 
+--data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
+--  Lens :: GetOpticType t ~ 'LensOptic => Lens' o val -> Optic key val t o
+--  Prism :: GetOpticType t ~ 'PrismOptic => Prism' o val -> Optic key val t o
+
 --------------------------------------------------------------------------------
 -- Optics implementations
 --------------------------------------------------------------------------------

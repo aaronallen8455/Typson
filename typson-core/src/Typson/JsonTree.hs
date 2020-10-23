@@ -41,16 +41,19 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError,
 -- Type-level JSON Tree Representation
 --------------------------------------------------------------------------------
 
-type Tree = [Node]
+data Tree = Tree Aggregator [Node]
 
 data Node
   = Node Symbol Multiplicity Type Tree
+
+data Aggregator
+  = Product
+  | Sum
 
 data Multiplicity
   = List
   | Singleton
   | Nullable
-  | UnionTag
 
 --------------------------------------------------------------------------------
 -- Final-tagless "Symantics" for Object Construction
@@ -60,12 +63,13 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
   type Result repr union :: Type
   data Tag repr :: Type -> Tree -> Type -> Type
 
-  union :: String
+  union :: tree ~ 'Tree 'Sum nodes
+        => String
         -> IFreeAp (Tag repr union) tree (union -> Result repr union)
         -> repr tree union
 
   tag :: ( KnownSymbol name
-         , tree ~ '[ 'Node name 'UnionTag v subTree]
+         , tree ~ 'Tree 'Sum '[ 'Node name 'Nullable v subTree]
          )
       => proxy name
       -> (v -> union)
@@ -79,7 +83,7 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   prim :: ( FromJSON v
           , ToJSON v
           )
-       => repr '[] v
+       => repr ('Tree 'Product '[]) v
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type

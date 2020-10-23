@@ -89,27 +89,21 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
              key
     = TypeAtPath obj rest key
 
-  -- No match for key with list index
-  TypeAtPath obj '[] (Idx key idx :-> nextKey)
-    = TypeError ('Text "JSON key not present in "
-           ':<>: 'ShowType obj
-           ':<>: 'Text ": \""
-           ':<>: 'Text key
-           ':<>: 'Text "\""
-                )
-
   -- No match for the key
-  TypeAtPath obj '[] (key :-> path)
-    = TypeError ('Text "JSON key not present in "
-           ':<>: 'ShowType obj
-           ':<>: 'Text ": \""
-           ':<>: 'Text key
-           ':<>: 'Text "\"" -- this is requiring UndecidableInstances
-                )
+  TypeAtPath obj '[] (key :: Symbol) = TypeError (MissingKey obj key)
+  TypeAtPath obj '[] (Idx key idx :-> nextKey) = TypeError (MissingKey obj key)
+  TypeAtPath obj '[] ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
 
-  -- Rather than have additional instances for ends that don't match, retry
-  -- with a path that will match the above two cases.
-  TypeAtPath obj '[] key = TypeAtPath obj '[] (key :-> ())
+  -- Path is constructed with invalid types
+  TypeAtPath obj t p = TypeError ('Text "You must use valid JSON path syntax.")
+
+type MissingKey obj key
+  =    ('Text "JSON key not present in "
+  ':<>: 'ShowType obj
+  ':<>: 'Text ": \""
+  ':<>: 'Text key
+  ':<>: 'Text "\"" -- this is requiring UndecidableInstances
+       )
 
 --------------------------------------------------------------------------------
 -- Utilities
