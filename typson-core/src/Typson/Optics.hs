@@ -7,7 +7,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs #-}
 module Typson.Optics
   ( fieldLens
   , fieldPrism
@@ -23,7 +23,7 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (FieldSYM(..), Multiplicity(..), Node(..), ObjectSYM(..), Tree, UnionSYM(..), runAp, runAp_)
+import           Typson.JsonTree (Aggregator(..), FieldSYM(..), Multiplicity(..), Node(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath)
 
 --------------------------------------------------------------------------------
@@ -38,9 +38,7 @@ fieldLens :: forall key obj tree ty proxy.
           => proxy key
           -> Optic key ty tree obj
           -> Lens' obj ty
-fieldLens _ = \case
-  Lens l -> l
-  Prism _ -> error "impossible"
+fieldLens _ (Lens l) = l
 
 fieldPrism :: forall key obj tree ty proxy.
               ( KnownSymbol key
@@ -50,26 +48,24 @@ fieldPrism :: forall key obj tree ty proxy.
            => proxy key
            -> Optic key ty tree obj
            -> Prism' obj ty
-fieldPrism _ = \case
-  Lens _ -> error "impossible"
-  Prism p -> p
+fieldPrism _ (Prism p) = p
 
 data OpticType = LensOptic | PrismOptic
 
 type family GetOpticType (t :: Tree) :: OpticType where
-  GetOpticType ('Node k 'UnionTag ty subTree ': rest) = 'PrismOptic
-  GetOpticType other                                  = 'LensOptic
+  GetOpticType ('Tree 'Sum ns) = 'PrismOptic
+  GetOpticType ('Tree 'Product ns) = 'LensOptic
 
 type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
 type Prism' s a = forall p f. (Choice p, Applicative f) => p a (f a) -> p s (f s)
 
-data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
-  = Lens (Lens' o val)
-  | Prism (Prism' o val)
+--data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type)
+--  = Lens (Lens' o val)
+--  | Prism (Prism' o val)
 
---data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
---  Lens :: GetOpticType t ~ 'LensOptic => Lens' o val -> Optic key val t o
---  Prism :: GetOpticType t ~ 'PrismOptic => Prism' o val -> Optic key val t o
+data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
+  Lens :: GetOpticType t ~ 'LensOptic => Lens' o val -> Optic key val t o
+  Prism :: GetOpticType t ~ 'PrismOptic => Prism' o val -> Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -101,7 +97,7 @@ instance KnownSymbol queryKey
 
   field :: forall field key subTree tree obj repr proxy.
            ( KnownSymbol key
-           , tree ~ '[ 'Node key 'Singleton field subTree]
+           , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
            )
         => proxy key
         -> (obj -> field)
@@ -122,7 +118,7 @@ instance KnownSymbol queryKey
 
   optField :: forall field key subTree tree obj repr proxy.
               ( KnownSymbol key
-              , tree ~ '[ 'Node key 'Nullable field subTree]
+              , tree ~ 'Tree 'Product '[ 'Node key 'Nullable field subTree]
               )
            => proxy key
            -> (obj -> Maybe field)
@@ -143,7 +139,7 @@ instance KnownSymbol queryKey
 
   listField :: forall field key subTree tree obj repr proxy.
                ( KnownSymbol key
-               , tree ~ '[ 'Node key 'List field subTree]
+               , tree ~ 'Tree 'Product '[ 'Node key 'List field subTree]
                )
             => proxy key
             -> (obj -> [field])
@@ -183,7 +179,7 @@ instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
 
   tag :: forall name union v subTree tree proxy.
          ( KnownSymbol name
-         , tree ~ '[ 'Node name 'UnionTag v subTree]
+         , tree ~ 'Tree 'Sum '[ 'Node name 'Nullable v subTree]
          )
       => proxy name
       -> (v -> union)

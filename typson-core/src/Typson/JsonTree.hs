@@ -5,9 +5,10 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-} -- for the custom type error
 module Typson.JsonTree
-  ( Tree
-  , JsonTree
+  ( JsonTree
+  , type Tree(..)
   , type Node(..)
+  , type Aggregator(..)
   , type Multiplicity(..)
   , ObjectSYM(..)
   , ObjectTree
@@ -77,7 +78,10 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
       -> Tag repr union tree (v -> Result repr union)
 
 class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
-  object :: (NonRecursive '[o] t, NoDuplicateKeys o t)
+  object :: ( t ~ 'Tree 'Product nodes
+            , NonRecursive '[o] nodes
+            , NoDuplicateKeys o nodes
+            )
          => String -> IFreeAp (Field repr o) t o -> repr t o
 
   prim :: ( FromJSON v
@@ -89,7 +93,7 @@ class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
 
   field :: ( KnownSymbol key
-           , tree ~ '[ 'Node key 'Singleton field subTree]
+           , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
            )
         => proxy key
         -> (obj -> field)
@@ -97,7 +101,7 @@ class FieldSYM repr where
         -> Field repr obj tree field
 
   optField :: ( KnownSymbol key
-              , tree ~ '[ 'Node key 'Nullable field subTree]
+              , tree ~ 'Tree 'Product '[ 'Node key 'Nullable field subTree]
               )
            => proxy key
            -> (obj -> Maybe field)
@@ -105,7 +109,7 @@ class FieldSYM repr where
            -> Field repr obj tree (Maybe field)
 
   optFieldDef :: ( KnownSymbol key
-                 , tree ~ '[ 'Node key 'Singleton field subTree]
+                 , tree ~ 'Tree 'Product '[ 'Node key 'Singleton field subTree]
                  )
               => proxy key
               -> (obj -> field)
@@ -115,7 +119,7 @@ class FieldSYM repr where
   optFieldDef p getter _ sub = field p getter sub
 
   listField :: ( KnownSymbol key
-               , tree ~ '[ 'Node key 'List field subTree]
+               , tree ~ 'Tree 'Product '[ 'Node key 'List field subTree]
                )
             => proxy key
             -> (obj -> [field])
@@ -226,12 +230,12 @@ instance FieldSYM ObjectDecoder where
 -- No Duplicate Keys Constraint
 --------------------------------------------------------------------------------
 
-type family NoDuplicateKeys (obj :: Type) (tree :: Tree) :: Constraint where
+type family NoDuplicateKeys (obj :: Type) (nodes :: [Node]) :: Constraint where
   NoDuplicateKeys obj ('Node key q ty subTree ': rest)
     = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
   NoDuplicateKeys obj '[] = ()
 
-type family KeyNotPresent (key :: Symbol) (obj :: Type) (tree :: Tree) :: Constraint where
+type family KeyNotPresent (key :: Symbol) (obj :: Type) (nodes :: [Node]) :: Constraint where
   KeyNotPresent key obj ('Node key q ty subTree ': rest)
     = TypeError ('Text "Duplicate JSON key \""
             ':<>: 'Text key
@@ -246,9 +250,9 @@ type family KeyNotPresent (key :: Symbol) (obj :: Type) (tree :: Tree) :: Constr
 -- No Recursion Constraint
 --------------------------------------------------------------------------------
 
--- TODO Is a type level Set available?
-type family NonRecursive (visited :: [Type]) (tree :: Tree) :: Constraint where
-  NonRecursive visited ('Node key q ty subTree ': rest)
+-- TODO Is this beneficial?
+type family NonRecursive (visited :: [Type]) (nodes :: [Node]) :: Constraint where
+  NonRecursive visited ('Node key q ty ('Tree aggr subTree) ': rest)
     = If (Elem ty visited)
          (TypeError ('Text "Recursive JSON types are not allowed."))
          (NonRecursive visited rest, NonRecursive (ty ': visited) subTree)
@@ -266,16 +270,20 @@ type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
 --------------------------------------------------------------------------------
 
 data IFreeAp (f :: Tree -> Type -> Type) (t :: Tree) (a :: Type) where
-  Pure :: a -> IFreeAp f '[] a
-  Ap   :: IFreeAp f t (a -> b)
-       -> f '[st] a
-       -> IFreeAp f (st ': t) b
+  Pure :: a -> IFreeAp f ('Tree aggr '[]) a
+  Ap   :: IFreeAp f ('Tree aggr nodes) (a -> b)
+       -> f ('Tree aggr '[st]) a
+       -> IFreeAp f ('Tree aggr (st ': nodes)) b
 
-(<<$>) :: (a -> b) -> f '[st] a -> IFreeAp f '[st] b
+(<<$>) :: (a -> b)
+       -> f ('Tree aggr '[st]) a
+       -> IFreeAp f ('Tree aggr '[st]) b
 f <<$> i = Pure f `Ap` i
 infixl 4 <<$>
 
-(<<*>) :: IFreeAp f t (a -> b) -> f '[st] a -> IFreeAp f (st ': t) b
+(<<*>) :: IFreeAp f ('Tree aggr nodes) (a -> b)
+       -> f ('Tree aggr '[st]) a
+       -> IFreeAp f ('Tree aggr (st ': nodes)) b
 (<<*>) = Ap
 infixl 4 <<*>
 
