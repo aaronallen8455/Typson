@@ -42,7 +42,7 @@ data Animal =
 -- Json Tree Definitions
 --------------------------------------------------------------------------------
 
-lifeFormJ :: JsonTree _ LifeForm
+lifeFormJ :: JsonSchema _ LifeForm
 lifeFormJ = object "LifeForm" $
   LifeForm
     <<$> field (key @"classifier") classifier classifierJ
@@ -54,7 +54,7 @@ instance FromJSON LifeForm where
 instance ToJSON LifeForm where
   toJSON = encodeObject lifeFormJ
 
-plantJ :: JsonTree _ Plant
+plantJ :: JsonSchema _ Plant
 plantJ = object "Plant" $
   Plant
     <<$> field (key @"isAquatic") isAquatic prim
@@ -66,7 +66,7 @@ instance FromJSON Plant where
 instance ToJSON Plant where
   toJSON = encodeObject plantJ
 
-animalJ :: JsonTree _ Animal
+animalJ :: JsonSchema _ Animal
 animalJ = object "Animal" $
   Animal
     <<$> listField (key @"favoriteFoods") favoriteFoods prim
@@ -78,13 +78,13 @@ instance FromJSON Animal where
 instance ToJSON Animal where
   toJSON = encodeObject animalJ
 
-classifierJ :: JsonTree _ Classifier
+classifierJ :: JsonSchema _ Classifier
 classifierJ = union "Classifier" $
-  handleTags
+  classifierTags
     <<$> tag (key @"flora") Flora plantJ
     <<*> tag (key @"fauna") Fauna animalJ
   where
-    handleTags withPlant withAnimal = \case
+    classifierTags withPlant withAnimal = \case
       Flora plant  -> withPlant plant
       Fauna animal -> withAnimal animal
 

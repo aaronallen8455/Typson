@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-} -- for the custom type error
 module Typson.JsonTree
-  ( JsonTree
+  ( JsonSchema
   , type Tree(..)
   , type Edge(..)
   , type Aggregator(..)
@@ -138,7 +138,7 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
       -> repr subTree v
       -> Tag repr union tree (v -> Result repr union)
 
-type JsonTree t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
+type JsonSchema t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 
 key :: Proxy (key :: Symbol)
 key = Proxy

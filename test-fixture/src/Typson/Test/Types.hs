@@ -21,7 +21,7 @@ data Foo =
     , foo4 :: Double
     } deriving (Show, Eq, Ord)
 
-fooJ :: JsonTree _ Foo
+fooJ :: JsonSchema _ Foo
 fooJ = object "Foo"
      $ Foo
   <<$> field       (key @"foo1") foo1 prim
@@ -52,7 +52,7 @@ data Bar =
     , bar4 :: Foo
     } deriving (Show, Eq, Ord)
 
-barJ :: JsonTree _ Bar
+barJ :: JsonSchema _ Bar
 barJ = object "Bar"
      $ Bar
   <<$> field       (key @"bar1") bar1 fooJ
@@ -74,7 +74,7 @@ data Baz =
     , baz4 :: Union
     } deriving (Show, Eq, Ord)
 
-bazJ :: JsonTree _ Baz
+bazJ :: JsonSchema _ Baz
 bazJ = object "Baz"
      $ Baz
   <<$> field     (key @"baz1") baz1 barJ
