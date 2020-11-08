@@ -120,5 +120,5 @@ selectFavoriteFood
       let o = e ^. LifeFormEntityObject
           name' = jsonPath (Proxy @"name") lifeFormJ o
           favoriteFood =
-            jsonPath (Proxy @("classifier" :-> "fauna" :-> "favoriteFoods" `Idx` 0)) lifeFormJ o
+            jsonPath (Proxy @("classifier" :-> "fauna" :-> "favoriteFoods" :-> 0)) lifeFormJ o
       pure (name', favoriteFood)

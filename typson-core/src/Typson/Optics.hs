@@ -36,7 +36,7 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (Aggregator(..), Edge(..), FieldSYM(..), Multiplicity(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
+import           Typson.JsonTree (Aggregator(..), Edge(..), EdgeLabel(..), FieldSYM(..), Multiplicity(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath)
 
 --------------------------------------------------------------------------------
@@ -78,6 +78,7 @@ data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
   Lens :: t ~ 'Node 'Product es => Lens' o val -> Optic key val t o
   Prism :: t ~ 'Node 'Sum es => Prism' o val -> Optic key val t o
   Absurd :: t ~ 'Leaf => Optic key val t o
+  AbsurdList :: t ~ 'Node 'List es => Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -95,6 +96,8 @@ instance KnownSymbol queryKey
               runIdentity $ runAp (\s -> Identity $ fSetter s a o) fields
          in setter obj <$> afa val
 
+  list _ = AbsurdList
+
   prim = Absurd
 
 instance KnownSymbol queryKey
@@ -107,9 +110,10 @@ instance KnownSymbol queryKey
                     -> fieldType
           }
 
-  field :: forall field key subTree tree obj repr proxy.
+  field :: forall field key subTree tree obj repr proxy edge.
            ( KnownSymbol key
-           , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
+           , edge ~ 'Edge ('Key key) 'Singleton field subTree
+           , tree ~ 'Node 'Product '[edge]
            )
         => proxy key
         -> (obj -> field)
@@ -128,9 +132,10 @@ instance KnownSymbol queryKey
           , fSetter = const
           }
 
-  optField :: forall field key subTree tree obj repr proxy.
+  optField :: forall field key subTree tree obj repr proxy edge.
               ( KnownSymbol key
-              , tree ~ 'Node 'Product '[ 'Edge key 'Nullable field subTree]
+              , edge ~ 'Edge ('Key key) 'Nullable field subTree
+              , tree ~ 'Node 'Product '[edge]
               )
            => proxy key
            -> (obj -> Maybe field)
@@ -138,27 +143,6 @@ instance KnownSymbol queryKey
            -> Field (Optic queryKey queryType) obj tree (Maybe field)
   optField _ getter _ =
     case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, Maybe field)) of
-      Nothing ->
-        Focus
-          { fGetter = First Nothing
-          , fSetter = \_ obj -> getter obj
-          }
-      Just Refl ->
-        Focus
-          { fGetter = First $ Just getter
-          , fSetter = const
-          }
-
-  listField :: forall field key subTree tree obj repr proxy.
-               ( KnownSymbol key
-               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
-               )
-            => proxy key
-            -> (obj -> [field])
-            -> repr subTree field
-            -> Field (Optic queryKey queryType) obj tree [field]
-  listField _ getter _ =
-    case sameField (Proxy @'(queryKey, queryType)) (Proxy @'(key, [field])) of
       Nothing ->
         Focus
           { fGetter = First Nothing
@@ -189,9 +173,10 @@ instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
               $ runIdentity (runAp (Identity . fExtract) tags) u
           g = either pure (fmap embed)
 
-  tag :: forall name union v subTree tree proxy.
+  tag :: forall name union v subTree tree proxy edge.
          ( KnownSymbol name
-         , tree ~ 'Node 'Sum '[ 'Edge name 'Nullable v subTree]
+         , edge ~ 'Edge ('Key name) 'Nullable v subTree
+         , tree ~ 'Node 'Sum '[edge]
          )
       => proxy name
       -> (v -> union)

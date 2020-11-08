@@ -24,7 +24,7 @@ data Foo =
 fooJ :: JsonSchema _ Foo
 fooJ = object "Foo"
      $ Foo
-  <<$> field       (key @"foo1") foo1 prim
+  <<$> field       (key @"foo1") foo1 (list prim)
   <<*> optField    (key @"foo2") foo2 prim
   <<*> field       (key @"foo3") foo3 prim
   <<*> optFieldDef (key @"foo4") foo4 20 prim
@@ -79,7 +79,7 @@ bazJ = object "Baz"
      $ Baz
   <<$> field     (key @"baz1") baz1 barJ
   <<*> optField  (key @"baz2") baz2 barJ
-  <<*> listField (key @"baz3") baz3 fooJ
+  <<*> field (key @"baz3") baz3 (list fooJ)
   <<*> field     (key @"baz4") baz4 unionJ
 
 instance ToJSON Baz where
@@ -174,7 +174,7 @@ optionalPath3Getter b =
      . fieldLens (key @"foo2") fooJ
      . _Just
 
-listIdxPath1 :: Proxy ("baz1" :-> "bar1" :-> "foo1" `Idx` 2)
+listIdxPath1 :: Proxy ("baz1" :-> "bar1" :-> "foo1" :-> 2)
 listIdxPath1 = Proxy
 
 listIdxPath1Getter :: Baz -> Maybe Bool
@@ -184,7 +184,7 @@ listIdxPath1Getter b =
      . fieldLens (key @"foo1") fooJ
      . ix 2
 
-listIdxPath2 :: Proxy ("baz3" `Idx` 0 :-> "foo3")
+listIdxPath2 :: Proxy ("baz3" :-> 0 :-> "foo3")
 listIdxPath2 = Proxy
 
 listIdxPath2Getter :: Baz -> Maybe String
@@ -193,7 +193,7 @@ listIdxPath2Getter b =
      . ix 0
      . fieldLens (key @"foo3") fooJ
 
-listIdxPath3 :: Proxy ("baz3" `Idx` 0 :-> "foo1" `Idx` 1)
+listIdxPath3 :: Proxy ("baz3" :-> 0 :-> "foo1" :-> 1)
 listIdxPath3 = Proxy
 
 listIdxPath3Getter :: Baz -> Maybe Bool
@@ -211,7 +211,7 @@ unionPath1Getter b =
   b ^? fieldLens (key @"baz4") bazJ
      . fieldPrism (key @"U1") unionJ
 
-unionPath2 :: Proxy ("baz4" :-> "U3" :-> "bar1" :-> "foo1" `Idx` 0)
+unionPath2 :: Proxy ("baz4" :-> "U3" :-> "bar1" :-> "foo1" :-> 0)
 unionPath2 = Proxy
 
 unionPath2Getter :: Baz -> Maybe Bool

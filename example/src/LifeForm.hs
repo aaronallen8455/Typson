@@ -69,7 +69,7 @@ instance ToJSON Plant where
 animalJ :: JsonSchema _ Animal
 animalJ = object "Animal" $
   Animal
-    <<$> listField (key @"favoriteFoods") favoriteFoods prim
+    <<$> field (key @"favoriteFoods") favoriteFoods (list prim)
     <<*> field (key @"isGoodPet") isGoodPet prim
 
 instance FromJSON Animal where

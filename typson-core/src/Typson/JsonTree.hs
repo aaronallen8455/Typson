@@ -44,6 +44,7 @@ module Typson.JsonTree
     -- ** Core Data Structure
   , type Tree(..)
   , type Edge(..)
+  , type EdgeLabel(..)
   , type Aggregator(..)
   , type Multiplicity(..)
   , NonRecursive
@@ -52,6 +53,7 @@ module Typson.JsonTree
 
 import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON)
 import qualified Data.Aeson.Types as Aeson
+import           Data.Foldable (toList)
 import           Data.Functor.Identity (Identity(..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Kind (Constraint, Type)
@@ -79,18 +81,23 @@ data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
 
 data Edge
   = Edge
-      Symbol       -- ^ The json field key
+      EdgeLabel    -- ^ The json field key
       Multiplicity -- ^ The multiplicity of the field's value
       Type         -- ^ The type of the value at the key
       Tree         -- ^ 'Tree' for the value's type
 
+data EdgeLabel
+  = Key Symbol -- ^ An edge corresponding to a key in an object
+  | Ind        -- ^ An edge corresponding to a numeric index in an array
+
 data Aggregator
   = Product -- ^ Object has all fields from a list
   | Sum     -- ^ Object has exactly one field from a list of possible fields
+  | List
+  -- need one for arrays and maps?
 
 data Multiplicity
-  = List      -- ^ Corresponds to a JSON array
-  | Singleton -- ^ A non-null field
+  = Singleton -- ^ A non-null field
   | Nullable  -- ^ A field that can be @null@
 
 --------------------------------------------------------------------------------
@@ -129,12 +136,19 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
           )
        => repr 'Leaf v
 
+  list :: ( edge ~ 'Edge 'Ind 'Singleton o t
+          , lt ~ 'Node 'List '[edge]
+          )
+       => repr t o
+       -> repr lt [o]
+
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
 
   -- | Defines a required field
   field :: ( KnownSymbol key
-           , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
+           , edge ~ 'Edge ('Key key) 'Singleton field subTree
+           , tree ~ 'Node 'Product '[edge]
            )
         => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
         -> (obj -> field) -- ^ The accessor for the field
@@ -144,7 +158,8 @@ class FieldSYM repr where
   -- | Defines an optional field. Will parse 'Nothing' for either a @null@ JSON
   -- value or if the key is missing. Will encode 'Nothing' as @null@.
   optField :: ( KnownSymbol key
-              , tree ~ 'Node 'Product '[ 'Edge key 'Nullable field subTree]
+              , edge ~ 'Edge ('Key key) 'Nullable field subTree
+              , tree ~ 'Node 'Product '[edge]
               )
            => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
            -> (obj -> Maybe field) -- ^ The accessor for the field
@@ -154,7 +169,8 @@ class FieldSYM repr where
   -- | Defines an optional field where parsing will emit the given default value
   -- if the field is @null@ or the key is absent.
   optFieldDef :: ( KnownSymbol key
-                 , tree ~ 'Node 'Product '[ 'Edge key 'Singleton field subTree]
+                 , edge ~ 'Edge ('Key key) 'Singleton field subTree
+                 , tree ~ 'Node 'Product '[edge]
                  )
               => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
               -> (obj -> field) -- ^ The accessor for the field
@@ -165,13 +181,13 @@ class FieldSYM repr where
 
   -- | Defines a field for a type of the form @[a]@. This translates to a JSON
   -- array.
-  listField :: ( KnownSymbol key
-               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
-               )
-            => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
-            -> (obj -> [field]) -- ^ The accessor for the field
-            -> repr subTree field -- ^ Schema for the type of the list's elements
-            -> Field repr obj tree [field]
+--  listField :: ( KnownSymbol key
+--               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
+--               )
+--            => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
+--            -> (obj -> [field]) -- ^ The accessor for the field
+--            -> repr subTree field -- ^ Schema for the type of the list's elements
+--            -> Field repr obj tree [field]
 
 -- | Used to interpret JSON trees for haskell sum types.
 class UnionSYM (repr :: Tree -> Type -> Type) where
@@ -207,7 +223,8 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
   -- The resulting JSON is an object with a single field with a key/value pair
   -- corresponding to one of the branches of the sum type.
   tag :: ( KnownSymbol name
-         , tree ~ 'Node 'Sum '[ 'Edge name 'Nullable v subTree]
+         , edge ~ 'Edge ('Key name) 'Nullable v subTree
+         , tree ~ 'Node 'Sum '[edge]
          )
       => proxy name -- ^ 'Symbol' used as the JSON key for the field
       -> (v -> union) -- ^ Data constructor
@@ -259,22 +276,26 @@ newtype ObjectTree (t :: Tree) o =
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
     Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
+  list (ObjectEncoder e) = ObjectEncoder $
+    Aeson.toJSON . map e
   prim = ObjectEncoder Aeson.toJSON
 
 instance ObjectSYM ObjectDecoder where
   object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
     runAp (`unFieldDecoder` obj) fields
+  list (ObjectDecoder d) = ObjectDecoder . Aeson.withArray "List" $
+    traverse d . toList
   prim = ObjectDecoder Aeson.parseJSON
 
 instance ObjectSYM ObjectTree where
   object _ _ = ObjectTree TreeProxy
+  list _ = ObjectTree TreeProxy
   prim = ObjectTree TreeProxy
 
 instance FieldSYM ObjectTree where
   data Field ObjectTree o t a = FieldProxy
   field _ _ _ = FieldProxy
   optField _ _ _ = FieldProxy
-  listField _ _ _ = FieldProxy
 
 instance FieldSYM ObjectEncoder where
   newtype Field ObjectEncoder o t a =
@@ -282,8 +303,6 @@ instance FieldSYM ObjectEncoder where
   field ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= so (acc o)
   optField ky acc (ObjectEncoder so) =
-    FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
-  listField ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
 
 instance FieldSYM ObjectDecoder where
@@ -298,9 +317,6 @@ instance FieldSYM ObjectDecoder where
   optFieldDef ky _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal ky)
     maybe (pure def) d mbSo
-  listField ky _ (ObjectDecoder d) = FieldDecoder $ \obj -> do
-    so <- obj .: T.pack (symbolVal ky)
-    traverse d so
 
 instance UnionSYM ObjectEncoder where
   newtype Tag ObjectEncoder u t a =
@@ -341,12 +357,12 @@ instance UnionSYM ObjectTree where
 --------------------------------------------------------------------------------
 
 type family NoDuplicateKeys (obj :: Type) (edges :: [Edge]) :: Constraint where
-  NoDuplicateKeys obj ('Edge key q ty subTree ': rest)
+  NoDuplicateKeys obj ('Edge ('Key key) q ty subTree ': rest)
     = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
   NoDuplicateKeys obj '[] = ()
 
 type family KeyNotPresent (key :: Symbol) (obj :: Type) (edges :: [Edge]) :: Constraint where
-  KeyNotPresent key obj ('Edge key q ty subTree ': rest)
+  KeyNotPresent key obj ('Edge ('Key key) q ty subTree ': rest)
     = TypeError ('Text "Duplicate JSON key \""
             ':<>: 'Text key
             ':<>: 'Text "\" in object "

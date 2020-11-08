@@ -36,7 +36,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
+import           Typson.JsonTree (Aggregator(..), Edge(..), EdgeLabel(..), Multiplicity(..), Tree(..))
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -65,55 +65,49 @@ typeAtPath _ _ = Proxy
 type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- Final key matches, return the field's type
   TypeAtPath obj
-             ('Node aggr ('Edge fieldName q field subTree ': rest))
+             ('Node aggr ('Edge ('Key fieldName) q field subTree ': rest))
              fieldName
-    = ApResult q field
+    = ApQuantity q field
 
   -- Final array index key matches, return the field's type
   TypeAtPath obj
-             ('Node aggr ('Edge fieldName 'List field subTree ': rest))
-             (Idx fieldName idx)
-    = ApQuantity 'List field
-
-  -- Final array index key for primitive list field matches, return the field's type
-  TypeAtPath obj
-             ('Node aggr ('Edge fieldName q [field] 'Leaf ': rest))
-             (Idx fieldName idx)
-    = ApQuantity 'List field
+             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
+             (idx :: Nat)
+    = ApQuantity 'Nullable field
 
   -- Require an index when accessing list element
   TypeAtPath obj
-             ('Node aggr ('Edge fieldName 'List field subTree ': rest))
-             (Idx fieldName idx :-> nextKey)
-    = ApQuantity 'List (TypeAtPath field subTree nextKey)
+             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
+             ((idx :: Nat) :-> nextKey)
+    = ApQuantity 'Nullable (TypeAtPath field subTree nextKey)
 
   -- List index not provided
   TypeAtPath obj
-             ('Node aggr ('Edge key 'List field subTree ': rest))
+             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
              (key :-> nextKey)
-    = TypeError ('Text "Invalid JSON path: you must provide an index for list field \""
+    = TypeError ('Text "Invalid JSON path: expected a numeric index for list field, instead got string \""
            ':<>: 'Text key
-           ':<>: 'Text "\" of object "
-           ':<>: 'ShowType obj
+           ':<>: 'Text "\"."
                 )
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath obj
-             ('Node aggr ('Edge fieldName q field subFields ': rest))
+             ('Node aggr ('Edge ('Key fieldName) q field subFields ': rest))
              (fieldName :-> nextKey)
     = ApQuantity q (TypeAtPath field subFields nextKey)
 
   -- Key doesn't match, try the next field
   TypeAtPath obj
-             ('Node aggr ('Edge fieldName q field subFields ': rest))
+             ('Node aggr ('Edge ('Key fieldName) q field subFields ': rest))
              key
     = TypeAtPath obj ('Node aggr rest) key
 
   -- No match for the key
   TypeAtPath obj tree (key :: Symbol) = TypeError (MissingKey obj key)
   TypeAtPath obj tree ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
-  TypeAtPath obj tree (Idx key idx) = TypeError (MissingKey obj key)
-  TypeAtPath obj tree (Idx key idx :-> nextKey) = TypeError (MissingKey obj key)
+  -- TODO improve these errors
+  TypeAtPath obj tree (idx :: Nat) = TypeError ('Text "Invalid JSON path: expected a key for field on object but got a number.")
+  TypeAtPath obj tree ((idx :: Nat) :-> nextKey) = TypeError ('Text "Invalid JSON path: expected a key for field on object but got a number.")
 
   -- Path is constructed with invalid types
   TypeAtPath obj t p = TypeError ('Text "You must use valid path syntax.")
@@ -130,26 +124,19 @@ type MissingKey obj key
 -- Utilities
 --------------------------------------------------------------------------------
 
--- | Applies the multiplicity to the focused field of a path
-type family ApResult (q :: Multiplicity) (b :: Type) :: Type where
-  ApResult 'List a = [a]
-  ApResult q a = ApQuantity q a
-
 -- | Applies a field's multiplicity to the type it contains.
 -- Using this requires UndecidableInstances
 type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
   ApQuantity 'Nullable (Maybe a) = Maybe a
   ApQuantity 'Nullable a = Maybe a
   ApQuantity 'Singleton a = a
-  ApQuantity 'List (Maybe a) = Maybe a
-  ApQuantity 'List a = Maybe a
 
 --------------------------------------------------------------------------------
 -- Path Reflection
 --------------------------------------------------------------------------------
 
 data PathComponent
-  = Key String
+  = Str String
   | Idx Integer
 
 class ReflectPath path where
@@ -157,27 +144,24 @@ class ReflectPath path where
   reflectPath :: proxy path -> NE.NonEmpty PathComponent
 
 instance KnownSymbol key => ReflectPath (key :: Symbol) where
-  reflectPath _ = Key (symbolVal (Proxy @key)) NE.:| []
+  reflectPath _ = Str (symbolVal (Proxy @key)) NE.:| []
 
-instance (KnownSymbol key, KnownNat idx)
-      => ReflectPath (Idx key idx) where
-  reflectPath _ = Key (symbolVal (Proxy @key))
-            NE.:| [Idx (natVal (Proxy @idx))]
+instance KnownNat idx => ReflectPath (idx :: Nat) where
+  reflectPath _ = Idx (natVal (Proxy @idx)) NE.:| []
 
 instance (KnownSymbol key, ReflectPath path)
       => ReflectPath ((key :: Symbol) :-> path) where
-  reflectPath _ = Key (symbolVal (Proxy @key))
+  reflectPath _ = Str (symbolVal (Proxy @key))
             NE.<| reflectPath (Proxy @path)
 
-instance (KnownSymbol key, KnownNat idx, ReflectPath path)
-      => ReflectPath (Idx key idx :-> path) where
-  reflectPath _ = Key (symbolVal (Proxy @key))
-            NE.<| Idx (natVal (Proxy @idx))
+instance (KnownNat idx, ReflectPath path)
+      => ReflectPath ((idx :: Nat) :-> path) where
+  reflectPath _ = Idx (natVal (Proxy @idx))
             NE.<| reflectPath (Proxy @path)
 
 -- | Reflect a path as an SQL JSON path string
 sqlPath :: ReflectPath path => proxy path -> String
 sqlPath = intercalate " -> " . map pathToString . NE.toList . reflectPath
   where
-    pathToString (Key s) = "'" <> s <> "'"
+    pathToString (Str s) = "'" <> s <> "'"
     pathToString (Idx i) = show i

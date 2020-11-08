@@ -59,7 +59,7 @@ jsonPath path _ input = coerce $
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath input p) ps
   where
-    buildPath p (Key k) = p B.->$ fromString k
+    buildPath p (Str k) = p B.->$ fromString k
     buildPath p (Idx i) = p B.-># fromInteger i
 
 --------------------------------------------------------------------------------
