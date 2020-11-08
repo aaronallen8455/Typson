@@ -7,11 +7,22 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
+--------------------------------------------------------------------------------
+-- |
+-- Module      : Typson.Beam
+-- Description : Provides the Beam integration
+-- Copyright   : (c) Aaron Allen, 2020
+-- Maintainer  : Aaron Allen <aaronallen8455@gmail.com>
+-- License     : BSD-style (see the file LICENSE)
+-- Stability   : experimental
+-- Portability : non-portable
+--
+--------------------------------------------------------------------------------
 module Typson.Beam
-  ( JNullable(..)
+  ( jsonPath
+  , JNullable(..)
   , nullableJsonb
   , nullableJson
-  , jsonPath
   ) where
 
 import qualified Data.Aeson as Aeson
@@ -28,15 +39,21 @@ import qualified Database.PostgreSQL.Simple.FromField as Pg
 
 import           Typson
 
--- | Construct a type safe JSON path.
+-- | Use a type-safe JSON path as part of a query.
+--
+-- @
+-- select $ jsonPath (Proxy @("foo" :-> "bar")) fieldSchemaJ
+--        . fieldAccessor
+--      <$> all_ someTable
+-- @
 jsonPath :: ( TypeAtPath o tree path ~ field
             , ReflectPath path
             , B.IsPgJSON json
             , Coercible (json field) (JNullable json' field)
             )
-         => proxy (path :: k)
-         -> ObjectTree tree o
-         -> B.QGenExpr ctxt B.Postgres s (json o)
+         => proxy (path :: k) -- ^ A path proxy
+         -> ObjectTree tree o -- ^ Typson schema
+         -> B.QGenExpr ctxt B.Postgres s (json o) -- ^ Column selector
          -> B.QGenExpr ctxt B.Postgres s (JNullable json' field)
 jsonPath path _ input = coerce $
   case reflectPath path of
@@ -49,7 +66,10 @@ jsonPath path _ input = coerce $
 -- Selecting Optional JSON
 --------------------------------------------------------------------------------
 
--- | Treats deserializing SQL 'NULL' as json 'null'
+-- | Wraps a @PgJSON@ or @PgJSONB@, treating deserialization of SQL @NULL@ as
+-- json @null@. This is so that if you query for a path that might not exist,
+-- i.e. a path into an optional field, then an exception will not be raised
+-- when attempting to decode the result as JSON.
 newtype JNullable json a = JNullable (json a)
   deriving (Ord, Eq, Show) via json a
   deriving B.IsPgJSON via json
@@ -71,10 +91,12 @@ instance Pg.FromField (json a) => Pg.FromField (JNullable json a) where
 -- Schema DataTypes
 --------------------------------------------------------------------------------
 
+-- | Declares a nullable @PgJSONB@ field in a migration schema
 nullableJsonb :: forall a. (Aeson.ToJSON a, Aeson.FromJSON a)
               => B.DataType B.Postgres (JNullable B.PgJSONB a)
 nullableJsonb = coerce (B.jsonb :: B.DataType B.Postgres (B.PgJSONB a))
 
+-- | Declares a nullable @PgJSON@ field in a migration schema
 nullableJson :: forall a. (Aeson.ToJSON a, Aeson.FromJSON a)
              => B.DataType B.Postgres (JNullable B.PgJSON a)
 nullableJson = coerce (B.json :: B.DataType B.Postgres (B.PgJSON a))

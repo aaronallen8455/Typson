@@ -4,13 +4,15 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 504970b103d4898d5869b804c91b9c3c02eed15d357f193d06774fe6ca63c2db
+-- hash: bd855221789d4b62c558655ad097570df3bf9fb4898f6d558d909b4cb8c11f19
 
 name:           typson-core
 version:        0.1.0.0
-description:    Type safe JSON SQL with bidirectional parsing.
-homepage:       https://github.com/aaronallen8455/OrvilleJSON#readme
-bug-reports:    https://github.com/aaronallen8455/OrvilleJSON/issues
+synopsis:       Type-safe PostgreSQL JSON Querying
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+category:       Database
+homepage:       https://github.com/aaronallen8455/typson#readme
+bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -22,7 +24,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/OrvilleJSON
+  location: https://github.com/aaronallen8455/typson
 
 library
   exposed-modules:

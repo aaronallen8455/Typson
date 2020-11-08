@@ -37,8 +37,8 @@ LifeFormEntity
   deriving Show Eq
 |]
 
-organismEntities :: [LifeFormEntity]
-organismEntities
+lifeFormEntities :: [LifeFormEntity]
+lifeFormEntities
   = [ LifeFormEntity $ JSONB lion
     , LifeFormEntity $ JSONB dog
     , LifeFormEntity $ JSONB kelp
@@ -52,7 +52,7 @@ main = do
     (`P.runSqlConn` be) $ do
       P.runMigration migrateAll
 
-      void $ P.insertMany organismEntities
+      void $ P.insertMany lifeFormEntities
 
       names <- selectNames
       liftIO $ putStrLn "All Names:"

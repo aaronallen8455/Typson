@@ -1,6 +1,6 @@
 name:                typson-core
 version:             0.1.0.0
-github:              "aaronallen8455/OrvilleJSON"
+github:              "aaronallen8455/typson"
 license:             BSD3
 author:              "Aaron Allen"
 maintainer:          "aaronallen8455@gmail.com"
@@ -9,14 +9,13 @@ copyright:           "2020 Aaron Allen"
 extra-source-files:
 - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis: Type-safe PostgreSQL JSON Querying
+category: Database
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Type safe JSON SQL with bidirectional parsing.
+description: Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
 
 dependencies:
 - base >= 4.7 && < 5

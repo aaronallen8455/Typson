@@ -2,8 +2,8 @@
 
 ## Introduction
 
-Typson uses type level programming to enable writing JSON and JSONB PostgreSQL
-queries that are type safe. There are integrations available for the `esqueleto`,
+Typson uses type level programming to enable writing JSON PostgreSQL queries
+that are type safe. There are integrations available for the `esqueleto`,
 `beam`, and `selda` libraries.
 
 The ability to store and query arbitrary JSON in a database can be very
@@ -134,7 +134,7 @@ argument of some of these `field` and `tag` definitions instead of `prim`.
 ### Writing `aeson` instances
 
 You should always define `FromJSON` and `ToJSON` instances using the Typson
-schemas for a given type, which is as simple as using the `decodeObject` and
+schema for a given type, which is as simple as using the `decodeObject` and
 `encodeObject` functions from `typson-core`:
 
 ```hs
@@ -186,8 +186,8 @@ LifeFormEntity
 |]
 
 -- sample data
-organismEntities :: [LifeFormEntity]
-organismEntities
+lifeFormEntities :: [LifeFormEntity]
+lifeFormEntities
   = [ LifeFormEntity $ JSONB lion
     , LifeFormEntity $ JSONB dog
     , LifeFormEntity $ JSONB kelp
@@ -201,7 +201,7 @@ main = do
     (`P.runSqlConn` be) $ do
       P.runMigration migrateAll
 
-      void $ P.insertMany organismEntities
+      void $ P.insertMany lifeFormEntities
 ```
 
 The `main` function simply connects to the database, creates the table if it

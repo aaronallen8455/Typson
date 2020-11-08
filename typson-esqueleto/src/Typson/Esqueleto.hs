@@ -5,10 +5,21 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PolyKinds #-}
+--------------------------------------------------------------------------------
+-- |
+-- Module      : Typson.Esqueleto
+-- Description : Provides the Esqueleto integration
+-- Copyright   : (c) Aaron Allen, 2020
+-- Maintainer  : Aaron Allen <aaronallen8455@gmail.com>
+-- License     : BSD-style (see the file LICENSE)
+-- Stability   : experimental
+-- Portability : non-portable
+--
+--------------------------------------------------------------------------------
 module Typson.Esqueleto
-  ( NullableJSONB(..)
+  ( jsonPath
+  , NullableJSONB(..)
   , PostgreSqlJSON
-  , jsonPath
   ) where
 
 import qualified Data.Aeson as Aeson
@@ -24,13 +35,20 @@ import           GHC.Generics (Generic)
 
 import           Typson
 
+-- | Use a type-safe JSON path as part of a query.
+--
+-- @
+-- select . from $ \entity ->
+--   pure . jsonPath (Proxy @("foo" :-> "bar")) fieldSchemaJ
+--     $ entity ^. Field
+-- @
 jsonPath :: ( TypeAtPath o tree path ~ field
             , ReflectPath path
             , PostgreSqlJSON json
             )
-         => proxy (path :: k)
-         -> ObjectTree tree o
-         -> E.SqlExpr (E.Value (json o))
+         => proxy (path :: k) -- ^ A path proxy
+         -> ObjectTree tree o -- ^ Typson schema
+         -> E.SqlExpr (E.Value (json o)) -- ^ Column selector
          -> E.SqlExpr (E.Value (NullableJSONB field))
 jsonPath path _ input =
   case reflectPath path of
@@ -40,7 +58,7 @@ jsonPath path _ input =
     buildPath p (Idx i) = p `arrOp` E.val (fromIntegral i :: Int)
     arrOp = E.unsafeSqlBinOp " -> "
 
--- | Treats SQL 'NULL' as a JSON 'null'
+-- | Treats SQL @NULL@ as a JSON @null@
 newtype NullableJSONB a =
   NullableJSONB
     { unNullableJSONB :: a

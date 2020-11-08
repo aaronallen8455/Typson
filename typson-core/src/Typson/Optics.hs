@@ -8,8 +8,21 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+--------------------------------------------------------------------------------
+-- |
+-- Module      : Typson.Optics
+-- Description : Interpreting schemas as optics
+-- Copyright   : (c) Aaron Allen, 2020
+-- Maintainer  : Aaron Allen <aaronallen8455@gmail.com>
+-- License     : BSD-style (see the file LICENSE)
+-- Stability   : experimental
+-- Portability : non-portable
+--
+--------------------------------------------------------------------------------
 module Typson.Optics
-  ( fieldLens
+  ( -- * Optics
+    -- | Van-laarhoven style optics derived from schemas.
+    fieldLens
   , fieldPrism
   ) where
 
@@ -30,21 +43,31 @@ import           Typson.Pathing (TypeAtPath)
 -- Derive Optics for Fields
 --------------------------------------------------------------------------------
 
+-- | Produce a 'Lens' given a key for an object field and a schema
+--
+-- >>> edward ^. fieldLens (key @"name") personJ
+-- "Edward"
+--
 fieldLens :: ( KnownSymbol key
              , tree ~ 'Node 'Product edges
              , TypeAtPath obj tree key ~ ty
              )
-          => proxy key
-          -> Optic key ty tree obj
+          => proxy key -- ^ The field's key
+          -> Optic key ty tree obj -- ^ The object's schema
           -> Lens' obj ty
 fieldLens _ (Lens l) = l
 
+-- | Produce a 'Prism' given a key for a union tag and a schema
+--
+-- >>> dog ^? fieldLens (key @"classifier") lifeFormJ . fieldPrism (key @"fauna") classifierJ
+-- Just (Animal {favoriteFoods = ["Chicken","Peanut Butter","Salmon"], isGoodPet = True})
+--
 fieldPrism :: ( KnownSymbol key
               , tree ~ 'Node 'Sum edges
               , TypeAtPath obj tree key ~ Maybe ty
               )
-           => proxy key
-           -> Optic key ty tree obj
+           => proxy key -- ^ The tag's key
+           -> Optic key ty tree obj -- ^ The union's schema
            -> Prism' obj ty
 fieldPrism _ (Prism p) = p
 

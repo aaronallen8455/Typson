@@ -6,14 +6,28 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
+--------------------------------------------------------------------------------
+-- |
+-- Module      : Typson.Pathing
+-- Description : Provides JSON pathing primitives
+-- Copyright   : (c) Aaron Allen, 2020
+-- Maintainer  : Aaron Allen <aaronallen8455@gmail.com>
+-- License     : BSD-style (see the file LICENSE)
+-- Stability   : experimental
+-- Portability : non-portable
+--
+--------------------------------------------------------------------------------
 module Typson.Pathing
-  ( ReflectPath(..)
+  ( -- * Pathing
+    -- | Components for constructing JSON paths for queries.
+    type (:->)
+  , type Idx
+  , PathComponent(..)
   , TypeAtPath
   , typeAtPath
+    -- * Path Reflection
+  , ReflectPath(..)
   , sqlPath
-  , PathComponent(..)
-  , type (:->)
-  , type Idx
   ) where
 
 import           Data.Kind (Type)
@@ -28,10 +42,16 @@ import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
 -- Type-level PostgreSQL JSON path components
 --------------------------------------------------------------------------------
 
+-- | A type operator for building a JSON query path from multiple components.
+--
+-- @
+--    type MyQuery = "foo" :-> "bar" `Idx` 2 :-> "baz"
+-- @
 data key :-> path -- key is polykinded, can be a Symbol or an Idx
 infixr 4 :->
 
-data Idx (key :: Symbol) (idx :: Nat) -- used to access element of a list
+-- | A path component used to query a list field at a specific index.
+data Idx (key :: Symbol) (idx :: Nat)
 
 --------------------------------------------------------------------------------
 -- Get the result type for a query at a given path
@@ -133,6 +153,7 @@ data PathComponent
   | Idx Integer
 
 class ReflectPath path where
+  -- | Reflect a type-level path to it's value level 'PathComponent's.
   reflectPath :: proxy path -> NE.NonEmpty PathComponent
 
 instance KnownSymbol key => ReflectPath (key :: Symbol) where
@@ -154,7 +175,7 @@ instance (KnownSymbol key, KnownNat idx, ReflectPath path)
             NE.<| Idx (natVal (Proxy @idx))
             NE.<| reflectPath (Proxy @path)
 
--- Reflect a path as a postgres SQL string
+-- | Reflect a path as an SQL JSON path string
 sqlPath :: ReflectPath path => proxy path -> String
 sqlPath = intercalate " -> " . map pathToString . NE.toList . reflectPath
   where

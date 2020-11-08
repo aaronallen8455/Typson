@@ -4,6 +4,17 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PolyKinds #-}
+--------------------------------------------------------------------------------
+-- |
+-- Module      : Typson.Selda
+-- Description : Provides the Selda integration
+-- Copyright   : (c) Aaron Allen, 2020
+-- Maintainer  : Aaron Allen <aaronallen8455@gmail.com>
+-- License     : BSD-style (see the file LICENSE)
+-- Stability   : experimental
+-- Portability : non-portable
+--
+--------------------------------------------------------------------------------
 module Typson.Selda
   ( jsonPath
   , Json(..)
@@ -26,12 +37,19 @@ import qualified Database.Selda.Unsafe as S
 
 import           Typson
 
+-- | Use a type-safe JSON path as part of a query.
+--
+-- @
+-- query $ jsonPath (Proxy @("foo" :-> "bar")) fieldSchemaJ
+--       . (! #field)
+--     <$> select someTable
+-- @
 jsonPath :: ( TypeAtPath o tree path ~ target
             , ReflectPath path
             )
-         => proxy (path :: k)
-         -> ObjectTree tree o
-         -> S.Col S.PG (Json o)
+         => proxy (path :: k) -- ^ A path proxy
+         -> ObjectTree tree o -- ^ Typson schema
+         -> S.Col S.PG (Json o) -- ^ Column selector
          -> S.Col S.PG (Json target)
 jsonPath path _ col =
   case reflectPath path of
@@ -47,6 +65,7 @@ jsonPath path _ col =
 --------------------------------------------------------------------------------
 
 -- | Use this wrapper on fields that are serialized as JSON in the database.
+-- It's deserialization treats SQL @NULL@ as JSON @null@.
 newtype Json a =
   Json
     { unJson :: a
