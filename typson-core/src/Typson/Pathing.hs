@@ -21,7 +21,6 @@ module Typson.Pathing
   ( -- * Pathing
     -- | Components for constructing JSON paths for queries.
     type (:->)
-  , type Idx
   , PathComponent(..)
   , TypeAtPath
   , typeAtPath
@@ -36,7 +35,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Aggregator(..), Edge(..), EdgeLabel(..), Multiplicity(..), Tree(..))
+import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -45,13 +44,10 @@ import           Typson.JsonTree (Aggregator(..), Edge(..), EdgeLabel(..), Multi
 -- | A type operator for building a JSON query path from multiple components.
 --
 -- @
---    type MyQuery = "foo" :-> "bar" `Idx` 2 :-> "baz"
+--    type MyQuery = "foo" :-> "bar" :-> 2 :-> "baz"
 -- @
-data key :-> path -- key is polykinded, can be a Symbol or an Idx
+data key :-> path -- key is polykinded, can be a Symbol or a Nat
 infixr 4 :->
-
--- | A path component used to query a list field at a specific index.
-data Idx (key :: Symbol) (idx :: Nat)
 
 --------------------------------------------------------------------------------
 -- Get the result type for a query at a given path
@@ -65,60 +61,63 @@ typeAtPath _ _ = Proxy
 type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- Final key matches, return the field's type
   TypeAtPath obj
-             ('Node aggr ('Edge ('Key fieldName) q field subTree ': rest))
+             ('Node aggr ('Edge fieldName q field subTree ': rest))
              fieldName
     = ApQuantity q field
 
   -- Final array index key matches, return the field's type
-  TypeAtPath obj
-             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
+  TypeAtPath (f obj)
+             ('ListNode subTree)
              (idx :: Nat)
-    = ApQuantity 'Nullable field
+    = ApQuantity 'Nullable obj
 
   -- Require an index when accessing list element
-  TypeAtPath obj
-             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
+  TypeAtPath (f obj)
+             ('ListNode subTree)
              ((idx :: Nat) :-> nextKey)
-    = ApQuantity 'Nullable (TypeAtPath field subTree nextKey)
+    = ApQuantity 'Nullable (TypeAtPath obj subTree nextKey)
 
   -- List index not provided
   TypeAtPath obj
-             ('Node 'List '[ 'Edge 'Ind 'Singleton field subTree])
+             ('ListNode subTree)
              (key :-> nextKey)
-    = TypeError ('Text "Invalid JSON path: expected a numeric index for list field, instead got string \""
+    = TypeError ('Text "Invalid JSON path: expected an array index, instead got string \""
            ':<>: 'Text key
            ':<>: 'Text "\"."
                 )
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath obj
-             ('Node aggr ('Edge ('Key fieldName) q field subFields ': rest))
+             ('Node aggr ('Edge fieldName q field subFields ': rest))
              (fieldName :-> nextKey)
     = ApQuantity q (TypeAtPath field subFields nextKey)
 
   -- Key doesn't match, try the next field
   TypeAtPath obj
-             ('Node aggr ('Edge ('Key fieldName) q field subFields ': rest))
+             ('Node aggr ('Edge fieldName q field subFields ': rest))
              key
     = TypeAtPath obj ('Node aggr rest) key
 
   -- No match for the key
   TypeAtPath obj tree (key :: Symbol) = TypeError (MissingKey obj key)
   TypeAtPath obj tree ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
-  -- TODO improve these errors
-  TypeAtPath obj tree (idx :: Nat) = TypeError ('Text "Invalid JSON path: expected a key for field on object but got a number.")
-  TypeAtPath obj tree ((idx :: Nat) :-> nextKey) = TypeError ('Text "Invalid JSON path: expected a key for field on object but got a number.")
+  TypeAtPath obj tree (idx :: Nat) = TypeError (InvalidIdx obj)
+  TypeAtPath obj tree ((idx :: Nat) :-> nextKey) = TypeError (InvalidIdx obj)
 
   -- Path is constructed with invalid types
   TypeAtPath obj t p = TypeError ('Text "You must use valid path syntax.")
 
 type MissingKey obj key
-  =    ('Text "JSON key not present in "
+  =     'Text "JSON key not present in "
   ':<>: 'ShowType obj
   ':<>: 'Text ": \""
   ':<>: 'Text key
   ':<>: 'Text "\"" -- this is requiring UndecidableInstances
-       )
+
+type InvalidIdx obj
+  =     'Text "Invalid JSON path: expected a key for "
+  ':<>: 'ShowType obj
+  ':<>: 'Text " but got an array index"
 
 --------------------------------------------------------------------------------
 -- Utilities
@@ -136,7 +135,7 @@ type family ApQuantity (q :: Multiplicity) (b :: Type) :: Type where
 --------------------------------------------------------------------------------
 
 data PathComponent
-  = Str String
+  = Key String
   | Idx Integer
 
 class ReflectPath path where
@@ -144,14 +143,14 @@ class ReflectPath path where
   reflectPath :: proxy path -> NE.NonEmpty PathComponent
 
 instance KnownSymbol key => ReflectPath (key :: Symbol) where
-  reflectPath _ = Str (symbolVal (Proxy @key)) NE.:| []
+  reflectPath _ = Key (symbolVal (Proxy @key)) NE.:| []
 
 instance KnownNat idx => ReflectPath (idx :: Nat) where
   reflectPath _ = Idx (natVal (Proxy @idx)) NE.:| []
 
 instance (KnownSymbol key, ReflectPath path)
       => ReflectPath ((key :: Symbol) :-> path) where
-  reflectPath _ = Str (symbolVal (Proxy @key))
+  reflectPath _ = Key (symbolVal (Proxy @key))
             NE.<| reflectPath (Proxy @path)
 
 instance (KnownNat idx, ReflectPath path)
@@ -163,5 +162,5 @@ instance (KnownNat idx, ReflectPath path)
 sqlPath :: ReflectPath path => proxy path -> String
 sqlPath = intercalate " -> " . map pathToString . NE.toList . reflectPath
   where
-    pathToString (Str s) = "'" <> s <> "'"
+    pathToString (Key s) = "'" <> s <> "'"
     pathToString (Idx i) = show i

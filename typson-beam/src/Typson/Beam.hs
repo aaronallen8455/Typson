@@ -44,7 +44,7 @@ import           Typson
 -- @
 -- select $ jsonPath (Proxy @("foo" :-> "bar")) fieldSchemaJ
 --        . fieldAccessor
---      <$> all_ someTable
+--      \<$> all_ someTable
 -- @
 jsonPath :: ( TypeAtPath o tree path ~ field
             , ReflectPath path
@@ -59,7 +59,7 @@ jsonPath path _ input = coerce $
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath input p) ps
   where
-    buildPath p (Str k) = p B.->$ fromString k
+    buildPath p (Key k) = p B.->$ fromString k
     buildPath p (Idx i) = p B.-># fromInteger i
 
 --------------------------------------------------------------------------------

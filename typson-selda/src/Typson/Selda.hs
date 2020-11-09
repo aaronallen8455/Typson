@@ -42,7 +42,7 @@ import           Typson
 -- @
 -- query $ jsonPath (Proxy @("foo" :-> "bar")) fieldSchemaJ
 --       . (! #field)
---     <$> select someTable
+--     \<$> select someTable
 -- @
 jsonPath :: ( TypeAtPath o tree path ~ target
             , ReflectPath path
@@ -55,7 +55,7 @@ jsonPath path _ col =
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath col p) ps
   where
-    buildPath c (Str k) = S.operator "->" c (fromString k :: S.Col S.PG T.Text)
+    buildPath c (Key k) = S.operator "->" c (fromString k :: S.Col S.PG T.Text)
     buildPath c (Idx i) = S.operator "->" c (S.rawExp (T.pack $ show i) :: S.Col S.PG Int)
     -- had to resort to `rawExp` here because selda uses bigint for Int which
     -- does not work with the -> operator

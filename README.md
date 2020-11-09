@@ -73,7 +73,7 @@ plantJ = object "Plant" $
 animalJ :: JsonSchema _ Animal
 animalJ = object "Animal" $
   Animal
-    <<$> listField (key @"favoriteFoods") favoriteFoods prim
+    <<$> field (key @"favoriteFoods") favoriteFoods (list prim)
     <<*> field (key @"isGoodPet") isGoodPet prim
 ```
 
@@ -90,8 +90,8 @@ defined using syntax that is akin to the standard Applicative form but with
 type-level machinery, which the normal `Applicative` type class cannot do.
 - There are several combinators for defining fields. `field` denotes a required
 attribute which translates to a non-null field in the JSON.
-- `listField` denotes a field whose type is of the form `[a]`. This will allow
-us to query for specific indices of the list.
+- `list` wraps a schema for some type `a`, turning it into a schema for `[a]`.
+This will allow us to query for specific indices of the list.
 - The first argument of the field combinators is the key to be used in the JSON.
 It is supplied using `key` which is just a synonym for `Proxy`. A type error
 occurrs if a key appears more than once in the same object.
@@ -290,13 +290,13 @@ selectFavoriteFood
       let o = e ^. LifeFormEntityObject
           name' = jsonPath (Proxy @"name") lifeFormJ o
           favoriteFood =
-            jsonPath (Proxy @("classifier" :-> "fauna" :-> "favoriteFoods" `Idx` 0)) lifeFormJ o
+            jsonPath (Proxy @("classifier" :-> "fauna" :-> "favoriteFoods" :-> 0)) lifeFormJ o
       pure (name', favoriteFood)
 ```
 
 Here we have `where` clauses that reference specific JSON fields.
-There is also an instance of using `Idx` as part of the path to query a
-particular index of an array field.
+There is also an instance of using a numeric literal as part of the path to
+query a particular index of an array field.
 
 As long as the JSON in your database was produced using the same schema that's
 being used for querying, then you can rest assured that your queries won't fail

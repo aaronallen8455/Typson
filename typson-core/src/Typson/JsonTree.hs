@@ -44,7 +44,6 @@ module Typson.JsonTree
     -- ** Core Data Structure
   , type Tree(..)
   , type Edge(..)
-  , type EdgeLabel(..)
   , type Aggregator(..)
   , type Multiplicity(..)
   , NonRecursive
@@ -77,23 +76,19 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError,
 --    personJ :: JsonSchema _ Person
 -- @
 data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
+          | ListNode Tree
           | Leaf
 
 data Edge
   = Edge
-      EdgeLabel    -- ^ The json field key
+      Symbol       -- ^ The json field key
       Multiplicity -- ^ The multiplicity of the field's value
       Type         -- ^ The type of the value at the key
       Tree         -- ^ 'Tree' for the value's type
 
-data EdgeLabel
-  = Key Symbol -- ^ An edge corresponding to a key in an object
-  | Ind        -- ^ An edge corresponding to a numeric index in an array
-
 data Aggregator
   = Product -- ^ Object has all fields from a list
   | Sum     -- ^ Object has exactly one field from a list of possible fields
-  | List
   -- need one for arrays and maps?
 
 data Multiplicity
@@ -136,18 +131,15 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
           )
        => repr 'Leaf v
 
-  list :: ( edge ~ 'Edge 'Ind 'Singleton o t
-          , lt ~ 'Node 'List '[edge]
-          )
-       => repr t o
-       -> repr lt [o]
+  list :: repr t o
+       -> repr ('ListNode t) [o]
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
 
   -- | Defines a required field
   field :: ( KnownSymbol key
-           , edge ~ 'Edge ('Key key) 'Singleton field subTree
+           , edge ~ 'Edge key 'Singleton field subTree
            , tree ~ 'Node 'Product '[edge]
            )
         => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
@@ -158,7 +150,7 @@ class FieldSYM repr where
   -- | Defines an optional field. Will parse 'Nothing' for either a @null@ JSON
   -- value or if the key is missing. Will encode 'Nothing' as @null@.
   optField :: ( KnownSymbol key
-              , edge ~ 'Edge ('Key key) 'Nullable field subTree
+              , edge ~ 'Edge key 'Nullable field subTree
               , tree ~ 'Node 'Product '[edge]
               )
            => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
@@ -169,7 +161,7 @@ class FieldSYM repr where
   -- | Defines an optional field where parsing will emit the given default value
   -- if the field is @null@ or the key is absent.
   optFieldDef :: ( KnownSymbol key
-                 , edge ~ 'Edge ('Key key) 'Singleton field subTree
+                 , edge ~ 'Edge key 'Singleton field subTree
                  , tree ~ 'Node 'Product '[edge]
                  )
               => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
@@ -178,16 +170,6 @@ class FieldSYM repr where
               -> repr subTree field -- ^ Schema for the type of the field
               -> Field repr obj tree field
   optFieldDef p getter _ sub = field p getter sub
-
-  -- | Defines a field for a type of the form @[a]@. This translates to a JSON
-  -- array.
---  listField :: ( KnownSymbol key
---               , tree ~ 'Node 'Product '[ 'Edge key 'List field subTree]
---               )
---            => proxy key -- ^ The 'Symbol' to use as the key in the JSON object
---            -> (obj -> [field]) -- ^ The accessor for the field
---            -> repr subTree field -- ^ Schema for the type of the list's elements
---            -> Field repr obj tree [field]
 
 -- | Used to interpret JSON trees for haskell sum types.
 class UnionSYM (repr :: Tree -> Type -> Type) where
@@ -223,7 +205,7 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
   -- The resulting JSON is an object with a single field with a key/value pair
   -- corresponding to one of the branches of the sum type.
   tag :: ( KnownSymbol name
-         , edge ~ 'Edge ('Key name) 'Nullable v subTree
+         , edge ~ 'Edge name 'Nullable v subTree
          , tree ~ 'Node 'Sum '[edge]
          )
       => proxy name -- ^ 'Symbol' used as the JSON key for the field
@@ -357,12 +339,12 @@ instance UnionSYM ObjectTree where
 --------------------------------------------------------------------------------
 
 type family NoDuplicateKeys (obj :: Type) (edges :: [Edge]) :: Constraint where
-  NoDuplicateKeys obj ('Edge ('Key key) q ty subTree ': rest)
+  NoDuplicateKeys obj ('Edge key q ty subTree ': rest)
     = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
   NoDuplicateKeys obj '[] = ()
 
 type family KeyNotPresent (key :: Symbol) (obj :: Type) (edges :: [Edge]) :: Constraint where
-  KeyNotPresent key obj ('Edge ('Key key) q ty subTree ': rest)
+  KeyNotPresent key obj ('Edge key q ty subTree ': rest)
     = TypeError ('Text "Duplicate JSON key \""
             ':<>: 'Text key
             ':<>: 'Text "\" in object "
@@ -387,6 +369,7 @@ type family NonRecursive (visited :: [Type]) (edges :: [Edge]) :: Constraint whe
 type family GetEdges (t :: Tree) :: [Edge] where
   GetEdges ('Node aggr edges) = edges
   GetEdges 'Leaf = '[]
+  GetEdges ('ListNode st) = GetEdges st
 
 type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
   Elem needle (needle ': rest) = 'True

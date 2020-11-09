@@ -54,7 +54,7 @@ jsonPath path _ input =
   case reflectPath path of
     p NE.:| ps -> foldl' buildPath (buildPath input p) ps
   where
-    buildPath p (Str k) = p `arrOp` E.val k
+    buildPath p (Key k) = p `arrOp` E.val k
     buildPath p (Idx i) = p `arrOp` E.val (fromIntegral i :: Int)
     arrOp = E.unsafeSqlBinOp " -> "
 

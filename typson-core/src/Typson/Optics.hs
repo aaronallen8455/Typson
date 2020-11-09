@@ -36,7 +36,7 @@ import           Data.Type.Equality ((:~:)(..))
 import           GHC.TypeLits (KnownSymbol, Symbol, sameSymbol)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           Typson.JsonTree (Aggregator(..), Edge(..), EdgeLabel(..), FieldSYM(..), Multiplicity(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
+import           Typson.JsonTree (Aggregator(..), Edge(..), FieldSYM(..), Multiplicity(..), ObjectSYM(..), Tree(..), UnionSYM(..), runAp, runAp_)
 import           Typson.Pathing (TypeAtPath)
 
 --------------------------------------------------------------------------------
@@ -77,8 +77,8 @@ type Prism' s a = forall p f. (Choice p, Applicative f) => p a (f a) -> p s (f s
 data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
   Lens :: t ~ 'Node 'Product es => Lens' o val -> Optic key val t o
   Prism :: t ~ 'Node 'Sum es => Prism' o val -> Optic key val t o
-  Absurd :: t ~ 'Leaf => Optic key val t o
-  AbsurdList :: t ~ 'Node 'List es => Optic key val t o
+  AbsurdLeaf :: t ~ 'Leaf => Optic key val t o
+  AbsurdList :: t ~ 'ListNode st => Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -98,7 +98,7 @@ instance KnownSymbol queryKey
 
   list _ = AbsurdList
 
-  prim = Absurd
+  prim = AbsurdLeaf
 
 instance KnownSymbol queryKey
     => FieldSYM (Optic queryKey queryType) where
@@ -112,7 +112,7 @@ instance KnownSymbol queryKey
 
   field :: forall field key subTree tree obj repr proxy edge.
            ( KnownSymbol key
-           , edge ~ 'Edge ('Key key) 'Singleton field subTree
+           , edge ~ 'Edge key 'Singleton field subTree
            , tree ~ 'Node 'Product '[edge]
            )
         => proxy key
@@ -134,7 +134,7 @@ instance KnownSymbol queryKey
 
   optField :: forall field key subTree tree obj repr proxy edge.
               ( KnownSymbol key
-              , edge ~ 'Edge ('Key key) 'Nullable field subTree
+              , edge ~ 'Edge key 'Nullable field subTree
               , tree ~ 'Node 'Product '[edge]
               )
            => proxy key
@@ -175,7 +175,7 @@ instance KnownSymbol queryKey => UnionSYM (Optic queryKey queryType) where
 
   tag :: forall name union v subTree tree proxy edge.
          ( KnownSymbol name
-         , edge ~ 'Edge ('Key name) 'Nullable v subTree
+         , edge ~ 'Edge name 'Nullable v subTree
          , tree ~ 'Node 'Sum '[edge]
          )
       => proxy name
