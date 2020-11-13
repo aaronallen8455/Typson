@@ -69,6 +69,14 @@ orvilleTestTree = withRunDb $ \runDb ->
       r11 <- runDb (runQuery unionQuery2)
       let a11 = map unionPath2Getter graphs
       assertEqual "Union Query 2" (sort r11) (sort a11)
+
+      r12 <- runDb (runQuery textMapQuery1)
+      let a12 = map textMapPath1Getter graphs
+      assertEqual "Text Map Query 1" (sort r12) (sort a12)
+
+      r13 <- runDb (runQuery textMapQuery2)
+      let a13 = map textMapPath2Getter graphs
+      assertEqual "Text Map Query 2" (sort r13) (sort a13)
   ]
 
 runQuery :: O.MonadOrville conn m => JsonSqlParts a -> m [a]
@@ -112,6 +120,12 @@ unionQuery1 = jsonPathSql unionPath1 bazJ graphField
 
 unionQuery2 :: JsonSqlParts (Maybe Bool)
 unionQuery2 = jsonPathSql unionPath2 bazJ graphField
+
+textMapQuery1 :: JsonSqlParts (Maybe Foo)
+textMapQuery1 = jsonPathSql textMapPath1 bazJ graphField
+
+textMapQuery2 :: JsonSqlParts (Maybe [Bool])
+textMapQuery2 = jsonPathSql textMapPath2 bazJ graphField
 
 --------------------------------------------------------------------------------
 -- DB Utils

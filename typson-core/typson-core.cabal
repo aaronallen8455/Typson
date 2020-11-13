@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bd855221789d4b62c558655ad097570df3bf9fb4898f6d558d909b4cb8c11f19
+-- hash: 76f973c3f5ee606994b0fafd3b7bb2c89bf643cfa6b14bf8b81af236da72ce87
 
 name:           typson-core
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , containers
     , profunctors
     , text
     , unordered-containers

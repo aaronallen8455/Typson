@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8ab60c01eb768a151e2441bce4961581de0206545c1c574825efe4be1dac389c
+-- hash: 90d7451bed689e792b5cf83584ba04a0ec22da738a978c8b935bf489d0adae88
 
 name:           test-fixture
 version:        0.1.0.0
@@ -32,6 +32,7 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , containers
     , hedgehog
     , lens
     , typson-core
@@ -50,6 +51,7 @@ test-suite spec
     , aeson
     , base >=4.7 && <5
     , bytestring
+    , containers
     , hedgehog
     , lens
     , microlens

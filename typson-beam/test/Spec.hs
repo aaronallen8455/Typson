@@ -86,6 +86,16 @@ beamTestTree = withRunDb $ \runDb ->
               jsonPath unionPath2 bazJ <$> getAllGraphs
       let a11 = JNullable . B.PgJSONB . unionPath2Getter <$> graphs
       assertEqual "Union Query 2" (sort r11) (sort a11)
+
+      r12 <- runDb . B.runSelectReturningList . B.select $
+               jsonPath textMapPath1 bazJ <$> getAllGraphs
+      let a12 = JNullable . B.PgJSONB . textMapPath1Getter <$> graphs
+      assertEqual "Text Map Query 1" (sort r12) (sort a12)
+
+      r13 <- runDb . B.runSelectReturningList . B.select $
+               jsonPath textMapPath2 bazJ <$> getAllGraphs
+      let a13 = JNullable . B.PgJSONB . textMapPath2Getter <$> graphs
+      assertEqual "Text Map Query 2" (sort r13) (sort a13)
   ]
 
 getAllGraphs :: B.Q B.Postgres Db s (B.QGenExpr B.QValueContext B.Postgres s (JNullable B.PgJSONB Baz))

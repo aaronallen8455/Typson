@@ -35,7 +35,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
+import           Typson.JsonTree (Edge(..), Multiplicity(..), Signed(..), Tree(..))
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -65,7 +65,7 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
              fieldName
     = ApQuantity q field
 
-  -- Final array index key matches, return the field's type
+  -- Final key is an array index, return the field's type
   TypeAtPath (f obj)
              ('ListNode subTree)
              (idx :: Nat)
@@ -85,6 +85,24 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
            ':<>: 'Text key
            ':<>: 'Text "\"."
                 )
+
+  -- Final component is a map key, return the field's type
+  TypeAtPath (f obj)
+             ('MapNode k subTree)
+             (key :: k)
+    = ApQuantity 'Nullable obj
+
+  -- Accept any valid key as the index into a map
+  TypeAtPath (f obj)
+             ('MapNode k subTree)
+             ((key :: k) :-> nextKey)
+    = ApQuantity 'Nullable (TypeAtPath obj subTree nextKey)
+
+  -- Invalid Map key
+  TypeAtPath obj
+             ('MapNode k subTree)
+             key
+    = TypeError ('Text "Invalid JSON path: expected a valid Map key")
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath obj
@@ -148,15 +166,15 @@ instance KnownSymbol key => ReflectPath (key :: Symbol) where
 instance KnownNat idx => ReflectPath (idx :: Nat) where
   reflectPath _ = Idx (natVal (Proxy @idx)) NE.:| []
 
-instance (KnownSymbol key, ReflectPath path)
-      => ReflectPath ((key :: Symbol) :-> path) where
-  reflectPath _ = Key (symbolVal (Proxy @key))
-            NE.<| reflectPath (Proxy @path)
+instance KnownNat idx => ReflectPath ('Pos idx) where
+  reflectPath _ = reflectPath (Proxy @idx)
 
-instance (KnownNat idx, ReflectPath path)
-      => ReflectPath ((idx :: Nat) :-> path) where
-  reflectPath _ = Idx (natVal (Proxy @idx))
-            NE.<| reflectPath (Proxy @path)
+instance KnownNat idx => ReflectPath ('Neg idx) where
+  reflectPath _ = Idx (negate $ natVal (Proxy @idx)) NE.:| []
+
+instance (ReflectPath key, ReflectPath path)
+      => ReflectPath (key :-> path) where
+  reflectPath _ = reflectPath (Proxy @key) <> reflectPath (Proxy @path)
 
 -- | Reflect a path as an SQL JSON path string
 sqlPath :: ReflectPath path => proxy path -> String

@@ -5,6 +5,7 @@ module Typson.Test.Types where
 
 import           Control.Lens
 import           Data.Aeson hiding (object)
+import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy(..))
 
 import           Typson
@@ -50,6 +51,7 @@ data Bar =
     , bar2 :: Maybe Foo
     , bar3 :: Double
     , bar4 :: Foo
+    , bar5 :: M.Map String Foo
     } deriving (Show, Eq, Ord)
 
 barJ :: JsonSchema _ Bar
@@ -59,6 +61,7 @@ barJ = object "Bar"
   <<*> optField    (key @"bar2") bar2 fooJ
   <<*> field       (key @"bar3") bar3 prim
   <<*> optFieldDef (key @"bar4") bar4 defFoo fooJ
+  <<*> field       (key @"bar5") bar5 (textMap fooJ)
 
 instance ToJSON Bar where
   toJSON = encodeObject barJ
@@ -221,3 +224,22 @@ unionPath2Getter b =
      . fieldLens (key @"bar1") barJ
      . fieldLens (key @"foo1") fooJ
      . ix 0
+
+textMapPath1 :: Proxy ("baz1" :-> "bar5" :-> "anything")
+textMapPath1 = Proxy
+
+textMapPath1Getter :: Baz -> Maybe Foo
+textMapPath1Getter b =
+  b ^? fieldLens (key @"baz1") bazJ
+     . fieldLens (key @"bar5") barJ
+     . ix "anything"
+
+textMapPath2 :: Proxy ("baz1" :-> "bar5" :-> "blah" :-> "foo1")
+textMapPath2 = Proxy
+
+textMapPath2Getter :: Baz -> Maybe [Bool]
+textMapPath2Getter b =
+  b ^? fieldLens (key @"baz1") bazJ
+     . fieldLens (key @"bar5") barJ
+     . ix "blah"
+     . fieldLens (key @"foo1") fooJ

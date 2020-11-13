@@ -21,6 +21,10 @@ barGen =
     <*> HH.maybe fooGen
     <*> HH.double (Range.constant 20 100)
     <*> fooGen
+    <*> HH.map (Range.constant 0 3)
+               ((,) <$> HH.string (Range.constant 1 20) HH.alphaNum
+                    <*> fooGen
+               )
 
 bazGen :: HH.Gen Baz
 bazGen =

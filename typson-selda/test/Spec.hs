@@ -85,6 +85,16 @@ seldaTestTree = withRunDb $ \runDb ->
               jsonPath unionPath2 bazJ <$> getAllGraphs
       let a11 = Json . unionPath2Getter <$> graphs
       assertEqual "Union Path 2" (sort r11) (sort a11)
+
+      r12 <- runDb . S.query $
+              jsonPath textMapPath1 bazJ <$> getAllGraphs
+      let a12 = Json . textMapPath1Getter <$> graphs
+      assertEqual "Text Map Path 1" (sort r12) (sort a12)
+
+      r13 <- runDb . S.query $
+              jsonPath textMapPath2 bazJ <$> getAllGraphs
+      let a13 = Json . textMapPath2Getter <$> graphs
+      assertEqual "Text Map Path 2" (sort r13) (sort a13)
   ]
 
 getAllGraphs :: S.Query s (S.Col s (Json Baz))

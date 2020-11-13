@@ -96,6 +96,18 @@ esqueletoTestTree = withRunDb $ \runDb ->
                 $ entity E.^. EsqueletoEntityGraph
       let a11 = E.Value . NullableJSONB . unionPath2Getter <$> graphs
       assertEqual "Union Path 2" (sort r11) (sort a11)
+
+      r12 <- runDb . E.select . E.from $ \entity ->
+              pure . jsonPath textMapPath1 bazJ
+                $ entity E.^. EsqueletoEntityGraph
+      let a12 = E.Value . NullableJSONB . textMapPath1Getter <$> graphs
+      assertEqual "Text Map Path 1" (sort r12) (sort a12)
+
+      r13 <- runDb . E.select . E.from $ \entity ->
+              pure . jsonPath textMapPath2 bazJ
+                $ entity E.^. EsqueletoEntityGraph
+      let a13 = E.Value . NullableJSONB . textMapPath2Getter <$> graphs
+      assertEqual "Text Map Path 2" (sort r13) (sort a13)
   ]
 
 type DbRunner = forall b. P.SqlPersistT IO b -> IO b

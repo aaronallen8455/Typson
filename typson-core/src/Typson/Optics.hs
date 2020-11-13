@@ -79,6 +79,7 @@ data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
   Prism :: t ~ 'Node 'Sum es => Prism' o val -> Optic key val t o
   AbsurdLeaf :: t ~ 'Leaf => Optic key val t o
   AbsurdList :: t ~ 'ListNode st => Optic key val t o
+  AbsurdMap :: t ~ 'MapNode k st => Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -97,6 +98,9 @@ instance KnownSymbol queryKey
          in setter obj <$> afa val
 
   list _ = AbsurdList
+
+  textMap _ = AbsurdMap
+  intMap _ = AbsurdMap
 
   prim = AbsurdLeaf
 

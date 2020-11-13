@@ -27,6 +27,7 @@ module Typson.JsonTree
   , UnionSYM(..)
   , JsonSchema
   , key
+  , type Signed(..)
     -- ** Core Interpreters
     -- | A single schema can be interpreted in different ways. This allows it to
     -- be used as both an encoder and decoder.
@@ -50,16 +51,19 @@ module Typson.JsonTree
   , NoDuplicateKeys
   ) where
 
-import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON)
+import           Control.Monad ((<=<))
+import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON, FromJSONKey, ToJSONKey)
 import qualified Data.Aeson.Types as Aeson
-import           Data.Foldable (toList)
 import           Data.Functor.Identity (Identity(..))
 import qualified Data.HashMap.Strict as HM
+import qualified Data.IntMap.Strict as IM
 import           Data.Kind (Constraint, Type)
+import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy(..))
+import           Data.String (IsString)
 import qualified Data.Text as T
 import           Data.Type.Bool (If)
-import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
+import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Nat, Symbol, TypeError, symbolVal)
 
 --------------------------------------------------------------------------------
 -- Type-level JSON Tree Representation
@@ -76,7 +80,10 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Symbol, TypeError,
 --    personJ :: JsonSchema _ Person
 -- @
 data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
-          | ListNode Tree
+          | ListNode Tree -- ^ Decorate a tree as the elements of a list
+          | MapNode Type Tree -- ^ Treat a tree as the values of a 'Map'.
+                              -- The 'Type' parameter is the kind of the indexing
+                              -- path component.
           | Leaf
 
 data Edge
@@ -131,8 +138,31 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
           )
        => repr 'Leaf v
 
+  -- | Given a schema for some type @a@, create a schema for @[a]@.
+  --
+  -- This will allow you to write queries specifying an index into the list:
+  -- @
+  --    type ListQuery = "foo" :-> "bar" :-> 3 :-> "baz"
+  -- @
   list :: repr t o
        -> repr ('ListNode t) [o]
+
+  -- | Produces a schema for a 'Map' given a schema for the value type. The key
+  -- of the map should use a string representation.
+  -- You can have arbitrary keys when constructing a query path into a @textMap@
+  -- schema.
+  textMap :: (FromJSONKey k, ToJSONKey k, IsString k, Ord k)
+          => repr t o
+          -> repr ('MapNode Symbol t) (M.Map k o)
+
+  -- | Produces a schema for an 'IntMap' given a schema for the value tyep.
+  --
+  -- You can query for arbitrary positive or negative integers:
+  -- @
+  --    type IntMapQuery = "foo" :-> \'Pos 2 :-> 'Neg 5
+  -- @
+  intMap :: repr t o
+         -> repr ('MapNode Signed t) (IM.IntMap o)
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -221,6 +251,11 @@ type JsonSchema t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 key :: Proxy (key :: Symbol)
 key = Proxy
 
+-- | Used to represent possibly negative integers at the type level
+data Signed
+  = Pos Nat -- ^ A positive integer
+  | Neg Nat -- ^ A negative integer
+
 --------------------------------------------------------------------------------
 -- Implementations
 --------------------------------------------------------------------------------
@@ -258,20 +293,24 @@ newtype ObjectTree (t :: Tree) o =
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
     Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
-  list (ObjectEncoder e) = ObjectEncoder $
-    Aeson.toJSON . map e
+  list (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e
+  textMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
+  intMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
   prim = ObjectEncoder Aeson.toJSON
 
 instance ObjectSYM ObjectDecoder where
   object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
     runAp (`unFieldDecoder` obj) fields
-  list (ObjectDecoder d) = ObjectDecoder . Aeson.withArray "List" $
-    traverse d . toList
+  list (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
+  textMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
+  intMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
   prim = ObjectDecoder Aeson.parseJSON
 
 instance ObjectSYM ObjectTree where
   object _ _ = ObjectTree TreeProxy
   list _ = ObjectTree TreeProxy
+  textMap _ = ObjectTree TreeProxy
+  intMap _ = ObjectTree TreeProxy
   prim = ObjectTree TreeProxy
 
 instance FieldSYM ObjectTree where
@@ -370,6 +409,7 @@ type family GetEdges (t :: Tree) :: [Edge] where
   GetEdges ('Node aggr edges) = edges
   GetEdges 'Leaf = '[]
   GetEdges ('ListNode st) = GetEdges st
+  GetEdges ('MapNode k st) = GetEdges st
 
 type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
   Elem needle (needle ': rest) = 'True
