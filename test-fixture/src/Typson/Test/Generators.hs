@@ -13,6 +13,7 @@ fooGen =
     <*> HH.maybe (HH.int $ Range.constant 0 100)
     <*> HH.string (Range.constant 1 15) HH.alphaNum
     <*> HH.double (Range.constant (-1000000) 1000000)
+    <*> HH.set (Range.constant 0 10) (HH.int $ Range.constant (-100) 100)
 
 barGen :: HH.Gen Bar
 barGen =

@@ -35,7 +35,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Proxy (Proxy(..))
 import           GHC.TypeLits (ErrorMessage(..), KnownNat, KnownSymbol, Nat, Symbol, TypeError, natVal, symbolVal)
 
-import           Typson.JsonTree (Edge(..), Multiplicity(..), Signed(..), Tree(..))
+import           Typson.JsonTree (Edge(..), Multiplicity(..), Tree(..))
 
 --------------------------------------------------------------------------------
 -- Type-level PostgreSQL JSON path components
@@ -65,44 +65,30 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
              fieldName
     = ApQuantity q field
 
-  -- Final key is an array index, return the field's type
-  TypeAtPath (f obj)
-             ('ListNode subTree)
-             (idx :: Nat)
-    = ApQuantity 'Nullable obj
-
-  -- Require an index when accessing list element
-  TypeAtPath (f obj)
-             ('ListNode subTree)
-             ((idx :: Nat) :-> nextKey)
-    = ApQuantity 'Nullable (TypeAtPath obj subTree nextKey)
-
-  -- List index not provided
-  TypeAtPath obj
-             ('ListNode subTree)
-             (key :-> nextKey)
-    = TypeError ('Text "Invalid JSON path: expected an array index, instead got string \""
-           ':<>: 'Text key
-           ':<>: 'Text "\"."
-                )
-
   -- Final component is a map key, return the field's type
   TypeAtPath (f obj)
-             ('MapNode k subTree)
+             ('IndexedNode k subTree)
              (key :: k)
     = ApQuantity 'Nullable obj
 
   -- Accept any valid key as the index into a map
   TypeAtPath (f obj)
-             ('MapNode k subTree)
+             ('IndexedNode k subTree)
              ((key :: k) :-> nextKey)
     = ApQuantity 'Nullable (TypeAtPath obj subTree nextKey)
 
   -- Invalid Map key
   TypeAtPath obj
-             ('MapNode k subTree)
+             ('IndexedNode k subTree)
              key
-    = TypeError ('Text "Invalid JSON path: expected a valid Map key")
+    = TypeError ('Text "Invalid JSON path: expected a "
+           ':<>: 'ShowType k
+           ':<>: 'Text " index for "
+           ':<>: 'ShowType obj
+           ':<>: 'Text " but got \""
+           ':<>: 'ShowType key
+           ':<>: 'Text "\"."
+                )
 
   -- Key matches, descend into sub-object preserving Maybe
   TypeAtPath obj
@@ -119,11 +105,8 @@ type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- No match for the key
   TypeAtPath obj tree (key :: Symbol) = TypeError (MissingKey obj key)
   TypeAtPath obj tree ((key :: Symbol) :-> path) = TypeError (MissingKey obj key)
-  TypeAtPath obj tree (idx :: Nat) = TypeError (InvalidIdx obj)
-  TypeAtPath obj tree ((idx :: Nat) :-> nextKey) = TypeError (InvalidIdx obj)
-
-  -- Path is constructed with invalid types
-  TypeAtPath obj t p = TypeError ('Text "You must use valid path syntax.")
+  TypeAtPath obj tree (idx :-> nextKey) = TypeError (InvalidKey idx obj)
+  TypeAtPath obj tree idx = TypeError (InvalidKey idx obj)
 
 type MissingKey obj key
   =     'Text "JSON key not present in "
@@ -132,10 +115,11 @@ type MissingKey obj key
   ':<>: 'Text key
   ':<>: 'Text "\"" -- this is requiring UndecidableInstances
 
-type InvalidIdx obj
+type InvalidKey idx obj
   =     'Text "Invalid JSON path: expected a key for "
   ':<>: 'ShowType obj
-  ':<>: 'Text " but got an array index"
+  ':<>: 'Text " but got "
+  ':<>: 'ShowType idx
 
 --------------------------------------------------------------------------------
 -- Utilities
@@ -165,12 +149,6 @@ instance KnownSymbol key => ReflectPath (key :: Symbol) where
 
 instance KnownNat idx => ReflectPath (idx :: Nat) where
   reflectPath _ = Idx (natVal (Proxy @idx)) NE.:| []
-
-instance KnownNat idx => ReflectPath ('Pos idx) where
-  reflectPath _ = reflectPath (Proxy @idx)
-
-instance KnownNat idx => ReflectPath ('Neg idx) where
-  reflectPath _ = Idx (negate $ natVal (Proxy @idx)) NE.:| []
 
 instance (ReflectPath key, ReflectPath path)
       => ReflectPath (key :-> path) where

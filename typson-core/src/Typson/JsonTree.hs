@@ -27,7 +27,6 @@ module Typson.JsonTree
   , UnionSYM(..)
   , JsonSchema
   , key
-  , type Signed(..)
     -- ** Core Interpreters
     -- | A single schema can be interpreted in different ways. This allows it to
     -- be used as both an encoder and decoder.
@@ -56,10 +55,10 @@ import           Data.Aeson ((.:), (.:?), (.=), FromJSON, ToJSON, FromJSONKey, T
 import qualified Data.Aeson.Types as Aeson
 import           Data.Functor.Identity (Identity(..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.IntMap.Strict as IM
 import           Data.Kind (Constraint, Type)
 import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy(..))
+import qualified Data.Set as S
 import           Data.String (IsString)
 import qualified Data.Text as T
 import           Data.Type.Bool (If)
@@ -80,10 +79,8 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Nat, Symbol, TypeE
 --    personJ :: JsonSchema _ Person
 -- @
 data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
-          | ListNode Tree -- ^ Decorate a tree as the elements of a list
-          | MapNode Type Tree -- ^ Treat a tree as the values of a 'Map'.
-                              -- The 'Type' parameter is the kind of the indexing
-                              -- path component.
+          | IndexedNode Type Tree
+          -- ^ A node representing a container indexed by some 'Type'
           | Leaf
 
 data Edge
@@ -144,25 +141,21 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   -- @
   --    type ListQuery = "foo" :-> "bar" :-> 3 :-> "baz"
   -- @
-  list :: repr t o
-       -> repr ('ListNode t) [o]
+  list :: repr t o -- ^ Value schema
+       -> repr ('IndexedNode Nat t) [o]
 
   -- | Produces a schema for a 'Map' given a schema for the value type. The key
   -- of the map should use a string representation.
   -- You can have arbitrary keys when constructing a query path into a @textMap@
   -- schema.
   textMap :: (FromJSONKey k, ToJSONKey k, IsString k, Ord k)
-          => repr t o
-          -> repr ('MapNode Symbol t) (M.Map k o)
+          => repr t o -- ^ Value schema
+          -> repr ('IndexedNode Symbol t) (M.Map k o)
 
-  -- | Produces a schema for an 'IntMap' given a schema for the value tyep.
-  --
-  -- You can query for arbitrary positive or negative integers:
-  -- @
-  --    type IntMapQuery = "foo" :-> \'Pos 2 :-> 'Neg 5
-  -- @
-  intMap :: repr t o
-         -> repr ('MapNode Signed t) (IM.IntMap o)
+  -- | Construct a 'Set' schema given a schema for it's values.
+  set :: Ord o
+      => repr t o -- ^ Value schema
+      -> repr ('IndexedNode Nat t) (S.Set o)
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -251,11 +244,6 @@ type JsonSchema t a = forall repr. (ObjectSYM repr, UnionSYM repr) => repr t a
 key :: Proxy (key :: Symbol)
 key = Proxy
 
--- | Used to represent possibly negative integers at the type level
-data Signed
-  = Pos Nat -- ^ A positive integer
-  | Neg Nat -- ^ A negative integer
-
 --------------------------------------------------------------------------------
 -- Implementations
 --------------------------------------------------------------------------------
@@ -284,39 +272,45 @@ newtype ObjectDecoder (t :: Tree) o =
       decodeObject :: Aeson.Value -> Aeson.Parser o
     }
 
+--------------------------------------------------------------------------------
+-- Tree Proxy
+--------------------------------------------------------------------------------
+
 data TreeProxy (t :: Tree) o = TreeProxy
 
 -- | Used to pass a 'Tree' around at the value level.
 newtype ObjectTree (t :: Tree) o =
   ObjectTree { getObjectTree :: TreeProxy t o }
 
-instance ObjectSYM ObjectEncoder where
-  object _ fields = ObjectEncoder $ \o ->
-    Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
-  list (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e
-  textMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
-  intMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
-  prim = ObjectEncoder Aeson.toJSON
-
-instance ObjectSYM ObjectDecoder where
-  object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
-    runAp (`unFieldDecoder` obj) fields
-  list (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
-  textMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
-  intMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
-  prim = ObjectDecoder Aeson.parseJSON
-
 instance ObjectSYM ObjectTree where
   object _ _ = ObjectTree TreeProxy
   list _ = ObjectTree TreeProxy
   textMap _ = ObjectTree TreeProxy
-  intMap _ = ObjectTree TreeProxy
+  set _ = ObjectTree TreeProxy
   prim = ObjectTree TreeProxy
 
 instance FieldSYM ObjectTree where
   data Field ObjectTree o t a = FieldProxy
   field _ _ _ = FieldProxy
   optField _ _ _ = FieldProxy
+
+instance UnionSYM ObjectTree where
+  data Tag ObjectTree u t a = TagProxy
+  type Result ObjectTree u = ()
+  union _ _ = ObjectTree TreeProxy
+  tag _ _ _ = TagProxy
+
+--------------------------------------------------------------------------------
+-- JSON Encoding
+--------------------------------------------------------------------------------
+
+instance ObjectSYM ObjectEncoder where
+  object _ fields = ObjectEncoder $ \o ->
+    Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
+  list (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e
+  textMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
+  set (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e . S.toList
+  prim = ObjectEncoder Aeson.toJSON
 
 instance FieldSYM ObjectEncoder where
   newtype Field ObjectEncoder o t a =
@@ -325,6 +319,30 @@ instance FieldSYM ObjectEncoder where
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= so (acc o)
   optField ky acc (ObjectEncoder so) =
     FieldEncoder $ \o -> T.pack (symbolVal ky) .= (so <$> acc o)
+
+instance UnionSYM ObjectEncoder where
+  newtype Tag ObjectEncoder u t a =
+    TagEncoder { unTagEncoder :: a }
+  type Result ObjectEncoder u = Aeson.Value
+  union _ tags = ObjectEncoder $
+    runIdentity (runAp (Identity . unTagEncoder) tags)
+  tag name _ valueEncoder =
+    TagEncoder $ \v ->
+      Aeson.object
+        [ T.pack (symbolVal name) .= encodeObject valueEncoder v ]
+
+--------------------------------------------------------------------------------
+-- JSON Decoding
+--------------------------------------------------------------------------------
+
+instance ObjectSYM ObjectDecoder where
+  object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
+    runAp (`unFieldDecoder` obj) fields
+  list (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
+  textMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
+  set (ObjectDecoder d) = ObjectDecoder $ fmap S.fromList
+                        . traverse d <=< Aeson.parseJSON
+  prim = ObjectDecoder Aeson.parseJSON
 
 instance FieldSYM ObjectDecoder where
   newtype Field ObjectDecoder o t a =
@@ -338,17 +356,6 @@ instance FieldSYM ObjectDecoder where
   optFieldDef ky _ def (ObjectDecoder d) = FieldDecoder $ \obj -> do
     mbSo <- obj .:? T.pack (symbolVal ky)
     maybe (pure def) d mbSo
-
-instance UnionSYM ObjectEncoder where
-  newtype Tag ObjectEncoder u t a =
-    TagEncoder { unTagEncoder :: a }
-  type Result ObjectEncoder u = Aeson.Value
-  union _ tags = ObjectEncoder $
-    runIdentity (runAp (Identity . unTagEncoder) tags)
-  tag name _ valueEncoder =
-    TagEncoder $ \v ->
-      Aeson.object
-        [ T.pack (symbolVal name) .= encodeObject valueEncoder v ]
 
 instance UnionSYM ObjectDecoder where
   newtype Tag ObjectDecoder u t a =
@@ -366,12 +373,6 @@ instance UnionSYM ObjectDecoder where
   tag name constr valueDecoder =
     TagDecoder . HM.singleton (T.pack $ symbolVal name)
       $ fmap constr . decodeObject valueDecoder
-
-instance UnionSYM ObjectTree where
-  data Tag ObjectTree u t a = TagProxy
-  type Result ObjectTree u = ()
-  union _ _ = ObjectTree TreeProxy
-  tag _ _ _ = TagProxy
 
 --------------------------------------------------------------------------------
 -- No Duplicate Keys Constraint
@@ -408,8 +409,7 @@ type family NonRecursive (visited :: [Type]) (edges :: [Edge]) :: Constraint whe
 type family GetEdges (t :: Tree) :: [Edge] where
   GetEdges ('Node aggr edges) = edges
   GetEdges 'Leaf = '[]
-  GetEdges ('ListNode st) = GetEdges st
-  GetEdges ('MapNode k st) = GetEdges st
+  GetEdges ('IndexedNode k st) = GetEdges st
 
 type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
   Elem needle (needle ': rest) = 'True

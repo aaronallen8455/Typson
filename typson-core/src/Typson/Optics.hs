@@ -78,8 +78,7 @@ data Optic (key :: Symbol) (val :: Type) (t :: Tree) (o :: Type) where
   Lens :: t ~ 'Node 'Product es => Lens' o val -> Optic key val t o
   Prism :: t ~ 'Node 'Sum es => Prism' o val -> Optic key val t o
   AbsurdLeaf :: t ~ 'Leaf => Optic key val t o
-  AbsurdList :: t ~ 'ListNode st => Optic key val t o
-  AbsurdMap :: t ~ 'MapNode k st => Optic key val t o
+  AbsurdIndexed :: t ~ 'IndexedNode k st => Optic key val t o
 
 --------------------------------------------------------------------------------
 -- Optics implementations
@@ -97,10 +96,9 @@ instance KnownSymbol queryKey
               runIdentity $ runAp (\s -> Identity $ fSetter s a o) fields
          in setter obj <$> afa val
 
-  list _ = AbsurdList
-
-  textMap _ = AbsurdMap
-  intMap _ = AbsurdMap
+  list _ = AbsurdIndexed
+  textMap _ = AbsurdIndexed
+  set _ = AbsurdIndexed
 
   prim = AbsurdLeaf
 

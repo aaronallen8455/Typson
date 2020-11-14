@@ -3,10 +3,11 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 module Typson.Test.Types where
 
-import           Control.Lens
+import           Control.Lens hiding (set)
 import           Data.Aeson hiding (object)
 import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy(..))
+import qualified Data.Set as S
 
 import           Typson
 
@@ -20,6 +21,7 @@ data Foo =
     , foo2 :: Maybe Int
     , foo3 :: String
     , foo4 :: Double
+    , foo5 :: S.Set Int
     } deriving (Show, Eq, Ord)
 
 fooJ :: JsonSchema _ Foo
@@ -29,6 +31,7 @@ fooJ = object "Foo"
   <<*> optField    (key @"foo2") foo2 prim
   <<*> field       (key @"foo3") foo3 prim
   <<*> optFieldDef (key @"foo4") foo4 20 prim
+  <<*> field       (key @"foo5") foo5 (set prim)
 
 defFoo :: Foo
 defFoo =
@@ -37,6 +40,7 @@ defFoo =
     , foo2 = Just 5
     , foo3 = "example"
     , foo4 = 812.54
+    , foo5 = mempty
     }
 
 instance ToJSON Foo where
@@ -82,7 +86,7 @@ bazJ = object "Baz"
      $ Baz
   <<$> field     (key @"baz1") baz1 barJ
   <<*> optField  (key @"baz2") baz2 barJ
-  <<*> field (key @"baz3") baz3 (list fooJ)
+  <<*> field     (key @"baz3") baz3 (list fooJ)
   <<*> field     (key @"baz4") baz4 unionJ
 
 instance ToJSON Baz where
@@ -243,3 +247,4 @@ textMapPath2Getter b =
      . fieldLens (key @"bar5") barJ
      . ix "blah"
      . fieldLens (key @"foo1") fooJ
+

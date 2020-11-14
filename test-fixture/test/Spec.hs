@@ -7,7 +7,7 @@ import qualified Hedgehog.Range as Range
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
-import           Typson
+import           Typson hiding (set)
 import           Typson.Test.Generators (bazGen, fooGen, unionGen)
 import           Typson.Test.Types (Baz, Foo, Union, barJ, bazJ, fooJ, unionJ)
 
