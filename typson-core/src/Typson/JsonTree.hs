@@ -62,6 +62,7 @@ import qualified Data.Set as S
 import           Data.String (IsString)
 import qualified Data.Text as T
 import           Data.Type.Bool (If)
+import qualified Data.Vector as V
 import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Nat, Symbol, TypeError, symbolVal)
 
 --------------------------------------------------------------------------------
@@ -70,17 +71,17 @@ import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Nat, Symbol, TypeE
 
 -- | This is the data structure used to represent the JSON form of a haskell type. It is
 -- only used at the type level via the @DataKinds@ extension. You shouldn't write
--- this type yourself, instead it's recommended that you let the compiler derive
--- it for you using the @PartialTypeSignatures@ extension and turning off warnings
--- for partial signatures using @-fno-warn-partial-type-signatures@. The 'Tree'
--- argument can then be replaced with @_@ in the type signature of your schemas:
+-- this type yourself, instead it's recommended that you let the compiler infer
+-- it using the @PartialTypeSignatures@ extension and turning off warnings for
+-- partial signatures using @-fno-warn-partial-type-signatures@. The @Tree@
+-- argument in the type signatures of your schemas can then be filled with @_@.
 --
 -- @
 --    personJ :: JsonSchema _ Person
 -- @
 data Tree = Node Aggregator [Edge] -- Invariant: [Edge] is non-empty
           | IndexedNode Type Tree
-          -- ^ A node representing a container indexed by some 'Type'
+          -- ^ A node representing a container indexed by some kind
           | Leaf
 
 data Edge
@@ -93,7 +94,6 @@ data Edge
 data Aggregator
   = Product -- ^ Object has all fields from a list
   | Sum     -- ^ Object has exactly one field from a list of possible fields
-  -- need one for arrays and maps?
 
 data Multiplicity
   = Singleton -- ^ A non-null field
@@ -115,10 +115,10 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   --        }
   --
   --    personJ :: JsonSchema _ Person
-  --    personJ = object "Person" $
+  --    personJ = object \"Person\" $
   --      Person
-  --        \<\<$> field (key @"name") name prim
-  --        \<\<*> field (key @"age") age prim
+  --        \<\<$> field (key \@\"name\") name prim
+  --        \<\<*> field (key \@\"age\") age prim
   -- @
   object :: ( t ~ 'Node 'Product edges
             , NonRecursive '[o] edges
@@ -138,24 +138,29 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   -- | Given a schema for some type @a@, create a schema for @[a]@.
   --
   -- This will allow you to write queries specifying an index into the list:
+  --
   -- @
-  --    type ListQuery = "foo" :-> "bar" :-> 3 :-> "baz"
+  --    type ListQuery = \"foo\" :-> \"bar\" :-> 3 :-> \"baz\"
   -- @
-  list :: repr t o -- ^ Value schema
+  list :: repr t o -- ^ Element schema
        -> repr ('IndexedNode Nat t) [o]
 
-  -- | Produces a schema for a 'Map' given a schema for the value type. The key
-  -- of the map should use a string representation.
+  -- | Produces a schema for a 'Map' given a schema for it's elements type. The
+  -- key of the map should be some sort of string.
   -- You can have arbitrary keys when constructing a query path into a @textMap@
   -- schema.
   textMap :: (FromJSONKey k, ToJSONKey k, IsString k, Ord k)
-          => repr t o -- ^ Value schema
+          => repr t o -- ^ Element schema
           -> repr ('IndexedNode Symbol t) (M.Map k o)
 
-  -- | Construct a 'Set' schema given a schema for it's values.
+  -- | Construct a 'Set' schema given a schema for it's elements.
   set :: Ord o
-      => repr t o -- ^ Value schema
+      => repr t o -- ^ Element schema
       -> repr ('IndexedNode Nat t) (S.Set o)
+
+  -- | Construct a 'Vector' schema given a schema for it's elements.
+  vector :: repr t o -- ^ Element schema
+         -> repr ('IndexedNode Nat t) (V.Vector o)
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -196,6 +201,7 @@ class FieldSYM repr where
 
 -- | Used to interpret JSON trees for haskell sum types.
 class UnionSYM (repr :: Tree -> Type -> Type) where
+  -- | The result produced from each tag
   type Result repr union :: Type
   data Tag repr :: Type -> Tree -> Type -> Type
 
@@ -207,18 +213,18 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
   --      | Fauna Animal
   --
   --    classifierJ :: JsonSchema _ Classifier
-  --    classifierJ = union "Classifier" $
+  --    classifierJ = union \"Classifier\" $
   --      classifierTags
-  --        <<$> tag (key @"flora") Flora plantJ
-  --        <<*> tag (key @"fauna") Fauna fuanaJ
+  --        \<\<$> tag (key \@\"flora\") Flora plantJ
+  --        \<\<*> tag (key \@"\fauna\") Fauna fuanaJ
   -- @
   union :: ( tree ~ 'Node 'Sum edges
            , NonRecursive '[union] edges
            , NoDuplicateKeys union edges
            )
-        => String -- ^ The 'Symbol' to use as the key in the JSON object
+        => String -- ^ Name of the union as it will appear in parse errors
         -> IFreeAp (Tag repr union) tree (union -> Result repr union)
-           -- ^ A collection of tags, one for each branch
+           -- ^ A collection of tags, one for each branch of the union
         -> repr tree union
 
   -- | Used to declare a single branch of a sum type. The constructor for the
@@ -245,34 +251,6 @@ key :: Proxy (key :: Symbol)
 key = Proxy
 
 --------------------------------------------------------------------------------
--- Implementations
---------------------------------------------------------------------------------
-
--- | Use a 'Tree' to encode a type as an Aeson 'Value'
-newtype ObjectEncoder (t :: Tree) o =
-  ObjectEncoder
-    { -- | Uses a schema as a JSON encoder
-      --
-      -- @
-      --    instance ToJSON Person where
-      --      toJSON = encodeObject personJ
-      -- @
-      encodeObject :: o -> Aeson.Value
-    }
-
--- | Use a 'Tree' to decode a type from an Aeson 'Value'
-newtype ObjectDecoder (t :: Tree) o =
-  ObjectDecoder
-    { -- | Uses a schema as a JSON parser
-      --
-      -- @
-      --    instance FromJSON Person where
-      --      parseJSON = decodeObject personJ
-      -- @
-      decodeObject :: Aeson.Value -> Aeson.Parser o
-    }
-
---------------------------------------------------------------------------------
 -- Tree Proxy
 --------------------------------------------------------------------------------
 
@@ -287,6 +265,7 @@ instance ObjectSYM ObjectTree where
   list _ = ObjectTree TreeProxy
   textMap _ = ObjectTree TreeProxy
   set _ = ObjectTree TreeProxy
+  vector _ = ObjectTree TreeProxy
   prim = ObjectTree TreeProxy
 
 instance FieldSYM ObjectTree where
@@ -304,12 +283,25 @@ instance UnionSYM ObjectTree where
 -- JSON Encoding
 --------------------------------------------------------------------------------
 
+-- | Use a 'Tree' to encode a type as an Aeson 'Value'
+newtype ObjectEncoder (t :: Tree) o =
+  ObjectEncoder
+    { -- | Uses a schema as a JSON encoder
+      --
+      -- @
+      --    instance ToJSON Person where
+      --      toJSON = encodeObject personJ
+      -- @
+      encodeObject :: o -> Aeson.Value
+    }
+
 instance ObjectSYM ObjectEncoder where
   object _ fields = ObjectEncoder $ \o ->
     Aeson.Object $ runAp_ (`unFieldEncoder` o) fields
   list (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e
   textMap (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
   set (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . map e . S.toList
+  vector (ObjectEncoder e) = ObjectEncoder $ Aeson.toJSON . fmap e
   prim = ObjectEncoder Aeson.toJSON
 
 instance FieldSYM ObjectEncoder where
@@ -335,6 +327,18 @@ instance UnionSYM ObjectEncoder where
 -- JSON Decoding
 --------------------------------------------------------------------------------
 
+-- | Use a 'Tree' to decode a type from an Aeson 'Value'
+newtype ObjectDecoder (t :: Tree) o =
+  ObjectDecoder
+    { -- | Uses a schema as a JSON parser
+      --
+      -- @
+      --    instance FromJSON Person where
+      --      parseJSON = decodeObject personJ
+      -- @
+      decodeObject :: Aeson.Value -> Aeson.Parser o
+    }
+
 instance ObjectSYM ObjectDecoder where
   object name fields = ObjectDecoder . Aeson.withObject name $ \obj ->
     runAp (`unFieldDecoder` obj) fields
@@ -342,6 +346,7 @@ instance ObjectSYM ObjectDecoder where
   textMap (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
   set (ObjectDecoder d) = ObjectDecoder $ fmap S.fromList
                         . traverse d <=< Aeson.parseJSON
+  vector (ObjectDecoder d) = ObjectDecoder $ traverse d <=< Aeson.parseJSON
   prim = ObjectDecoder Aeson.parseJSON
 
 instance FieldSYM ObjectDecoder where
@@ -378,6 +383,8 @@ instance UnionSYM ObjectDecoder where
 -- No Duplicate Keys Constraint
 --------------------------------------------------------------------------------
 
+-- | A constraint that raises a type error if an object has more than one field
+-- with the same key.
 type family NoDuplicateKeys (obj :: Type) (edges :: [Edge]) :: Constraint where
   NoDuplicateKeys obj ('Edge key q ty subTree ': rest)
     = (KeyNotPresent key obj rest, NoDuplicateKeys obj rest)
@@ -398,7 +405,8 @@ type family KeyNotPresent (key :: Symbol) (obj :: Type) (edges :: [Edge]) :: Con
 -- No Recursion Constraint
 --------------------------------------------------------------------------------
 
--- TODO How beneficial is this?
+-- TODO how useful is this?
+-- | Raises a friendly type error for `Tree`s that contain cycles
 type family NonRecursive (visited :: [Type]) (edges :: [Edge]) :: Constraint where
   NonRecursive visited ('Edge key q ty tree ': rest)
     = If (Elem ty visited)

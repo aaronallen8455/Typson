@@ -1,5 +1,6 @@
 module Typson.Test.Generators where
 
+import qualified Data.Vector as V
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH
 import qualified Hedgehog.Range as Range
@@ -14,6 +15,7 @@ fooGen =
     <*> HH.string (Range.constant 1 15) HH.alphaNum
     <*> HH.double (Range.constant (-1000000) 1000000)
     <*> HH.set (Range.constant 0 10) (HH.int $ Range.constant (-100) 100)
+    <*> fmap V.fromList (HH.list (Range.constant 0 15) HH.bool)
 
 barGen :: HH.Gen Bar
 barGen =

@@ -298,6 +298,6 @@ Here we have `where` clauses that reference specific JSON fields.
 There is also an instance of using a numeric literal as part of the path to
 query a particular index of an array field.
 
-As long as the JSON in your database was produced using the same schema that's
-being used for querying, then you can rest assured that your queries won't fail
-at runtime!
+In conclusion, as long as the JSON in your database was produced using the same
+schema that's being used for querying, then you can rest assured that your JSON
+queries won't result in runtime bugs!

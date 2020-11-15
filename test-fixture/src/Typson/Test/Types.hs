@@ -8,6 +8,7 @@ import           Data.Aeson hiding (object)
 import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy(..))
 import qualified Data.Set as S
+import qualified Data.Vector as V
 
 import           Typson
 
@@ -22,6 +23,7 @@ data Foo =
     , foo3 :: String
     , foo4 :: Double
     , foo5 :: S.Set Int
+    , foo6 :: V.Vector Bool
     } deriving (Show, Eq, Ord)
 
 fooJ :: JsonSchema _ Foo
@@ -32,6 +34,7 @@ fooJ = object "Foo"
   <<*> field       (key @"foo3") foo3 prim
   <<*> optFieldDef (key @"foo4") foo4 20 prim
   <<*> field       (key @"foo5") foo5 (set prim)
+  <<*> field       (key @"foo6") foo6 (vector prim)
 
 defFoo :: Foo
 defFoo =
@@ -41,6 +44,7 @@ defFoo =
     , foo3 = "example"
     , foo4 = 812.54
     , foo5 = mempty
+    , foo6 = pure True
     }
 
 instance ToJSON Foo where

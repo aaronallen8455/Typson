@@ -21,7 +21,7 @@
 --------------------------------------------------------------------------------
 module Typson.Optics
   ( -- * Optics
-    -- | Van-laarhoven style optics derived from schemas.
+    -- | van Laarhoven style optics derived from schemas.
     fieldLens
   , fieldPrism
   ) where
@@ -99,6 +99,7 @@ instance KnownSymbol queryKey
   list _ = AbsurdIndexed
   textMap _ = AbsurdIndexed
   set _ = AbsurdIndexed
+  vector _ = AbsurdIndexed
 
   prim = AbsurdLeaf
 

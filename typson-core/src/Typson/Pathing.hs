@@ -21,10 +21,10 @@ module Typson.Pathing
   ( -- * Pathing
     -- | Components for constructing JSON paths for queries.
     type (:->)
-  , PathComponent(..)
   , TypeAtPath
   , typeAtPath
     -- * Path Reflection
+  , PathComponent(..)
   , ReflectPath(..)
   , sqlPath
   ) where
@@ -53,11 +53,15 @@ infixr 4 :->
 -- Get the result type for a query at a given path
 --------------------------------------------------------------------------------
 
-typeAtPath :: proxy path
-           -> repr tree obj
+-- | Get the result type for a query at a given path.
+typeAtPath :: proxy path -- ^ A path proxy
+           -> repr tree obj -- ^ Schema for the type being queried
            -> Proxy (TypeAtPath obj tree path)
 typeAtPath _ _ = Proxy
 
+-- | Determine the type of the query result for a path into a JSON schema.
+-- Nullability is propagated so that the result will be wrapped with 'Maybe' if
+-- one or more components of the path are nullable.
 type family TypeAtPath (obj :: Type) (tree :: Tree) (path :: k) :: Type where
   -- Final key matches, return the field's type
   TypeAtPath obj

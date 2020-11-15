@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 76f973c3f5ee606994b0fafd3b7bb2c89bf643cfa6b14bf8b81af236da72ce87
+-- hash: 750200be80d275748d5615f34fe15ea9b90177b0b1ca576332806c5ec4faa7ff
 
 name:           typson-core
 version:        0.1.0.0
@@ -44,4 +44,5 @@ library
     , profunctors
     , text
     , unordered-containers
+    , vector
   default-language: Haskell2010

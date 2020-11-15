@@ -23,6 +23,7 @@ dependencies:
 - containers
 - text
 - unordered-containers
+- vector
 - profunctors
 
 library:

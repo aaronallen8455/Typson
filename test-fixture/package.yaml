@@ -22,6 +22,7 @@ dependencies:
 - hedgehog
 - lens
 - typson-core
+- vector
 
 library:
   source-dirs: src
