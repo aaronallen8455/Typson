@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ab1c9055f6634c7717fd499a52093f9770629a2b28a2655e4aa59a64fd8a13c4
+-- hash: a7574b3321361b5d2a321954e4fc9f9fff8cec5b50521a2efc0c444f007ccf0d
 
 name:           typson-selda
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson-selda#readme>
-homepage:       https://github.com/aaronallen8455/typson-selda#readme
-bug-reports:    https://github.com/aaronallen8455/typson-selda/issues
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+homepage:       https://github.com/aaronallen8455/typson#readme
+bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -23,7 +23,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/typson-selda
+  location: https://github.com/aaronallen8455/typson
 
 library
   exposed-modules:

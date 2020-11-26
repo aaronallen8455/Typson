@@ -25,44 +25,26 @@ packages:
   original:
     hackage: HDBC-postgresql-2.3.2.7
 - completed:
-    subdir: beam-core
-    name: beam-core
-    version: 0.9.0.0
-    git: git@github.com:haskell-beam/beam.git
+    hackage: beam-core-0.9.0.0@sha256:e5b1cb4d5b8a8a166f3373e8718672a3884feb9a5a133404b047b0af76538023,5282
     pantry-tree:
-      size: 2623
-      sha256: 5bf48cf256a7e215d403fc3ae079dc461da9c900eb8b069129fbe4e33ed420d7
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+      size: 2704
+      sha256: e54dabae556fcac9079587adcce1b2bb107c196688c476dabdd84ca86ad556af
   original:
-    subdir: beam-core
-    git: git@github.com:haskell-beam/beam.git
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+    hackage: beam-core-0.9.0.0
 - completed:
-    subdir: beam-postgres
-    name: beam-postgres
-    version: 0.5.0.0
-    git: git@github.com:haskell-beam/beam.git
+    hackage: beam-postgres-0.5.0.0@sha256:3008f802b25fffaee2edf7f8f840a073ee630049031cda0b4ea7912b6656c813,4333
     pantry-tree:
-      size: 2679
-      sha256: 9fab3ce67c798319d9fc8dfdd823236961832ecbe747a4091f20d5456be4f5fe
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+      size: 1692
+      sha256: 650c0241326528b9664756e7822edf61d972f30f21f42d4318c7e885aa86e38a
   original:
-    subdir: beam-postgres
-    git: git@github.com:haskell-beam/beam.git
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+    hackage: beam-postgres-0.5.0.0
 - completed:
-    subdir: beam-migrate
-    name: beam-migrate
-    version: 0.5.0.0
-    git: git@github.com:haskell-beam/beam.git
+    hackage: beam-migrate-0.5.0.0@sha256:d3f7e333ec9e96122ccec6be0d38a88f766dfc248323be73fd0b3cee245ea421,4923
     pantry-tree:
-      size: 1825
-      sha256: f0fbe58081e9055669a8e38ae36b41fbcf64e964e93b7abf19d7d0cd0ebf355a
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+      size: 1721
+      sha256: 0aa2b84eef52bf8a7fc9906c2b2a1bc37d077456f232cdf445fc182ee888c20f
   original:
-    subdir: beam-migrate
-    git: git@github.com:haskell-beam/beam.git
-    commit: 84cac6dff45921ba51720444fd7d429dfbcebace
+    hackage: beam-migrate-0.5.0.0
 - completed:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
     pantry-tree:
@@ -93,7 +75,7 @@ packages:
     hackage: selda-postgresql-0.1.8.1
 snapshots:
 - completed:
-    size: 532380
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/16.yaml
-    sha256: d6b004b095fe2a0b8b14fbc30014ee97e58843b9c9362ddb9244273dda62649e
-  original: lts-16.16
+    size: 532832
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/23.yaml
+    sha256: fbb2a0519008533924c7753bd7164ddd1009f09504eb06674acad6049b46db09
+  original: lts-16.23

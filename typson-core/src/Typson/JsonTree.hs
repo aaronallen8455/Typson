@@ -36,7 +36,7 @@ module Typson.JsonTree
   , ObjectDecoder(..)
   , ObjectTree(..)
   -- ** Specialized Indexed Free Applicative
-  , IFreeAp
+  , TreeBuilder
   , (<<$>)
   , (<<*>)
   , runAp
@@ -46,7 +46,6 @@ module Typson.JsonTree
   , type Edge(..)
   , type Aggregator(..)
   , type Multiplicity(..)
-  , NonRecursive
   , NoDuplicateKeys
   ) where
 
@@ -61,7 +60,6 @@ import           Data.Proxy (Proxy(..))
 import qualified Data.Set as S
 import           Data.String (IsString)
 import qualified Data.Text as T
-import           Data.Type.Bool (If)
 import qualified Data.Vector as V
 import           GHC.TypeLits (ErrorMessage(..), KnownSymbol, Nat, Symbol, TypeError, symbolVal)
 
@@ -120,13 +118,12 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   --        \<\<$> field (key \@\"name\") name prim
   --        \<\<*> field (key \@\"age\") age prim
   -- @
-  object :: ( t ~ 'Node 'Product edges
-            , NonRecursive '[o] edges
+  object :: ( tree ~ 'Node 'Product edges
             , NoDuplicateKeys o edges
             )
          => String -- ^ Name of the object as it will appear in parse errors
-         -> IFreeAp (Field repr o) t o -- ^ The collection of fields
-         -> repr t o
+         -> TreeBuilder (Field repr o) tree o -- ^ The collection of fields
+         -> repr tree o
 
   -- | Serves as a schema for a type that cannot itself be broken down into
   -- named fields. The type must have 'FromJSON' and 'ToJSON' instances.
@@ -142,25 +139,25 @@ class FieldSYM repr => ObjectSYM (repr :: Tree -> Type -> Type) where
   -- @
   --    type ListQuery = \"foo\" :-> \"bar\" :-> 3 :-> \"baz\"
   -- @
-  list :: repr t o -- ^ Element schema
-       -> repr ('IndexedNode Nat t) [o]
+  list :: repr tree o -- ^ Element schema
+       -> repr ('IndexedNode Nat tree) [o]
 
   -- | Produces a schema for a 'Map' given a schema for it's elements type. The
   -- key of the map should be some sort of string.
   -- You can have arbitrary keys when constructing a query path into a @textMap@
   -- schema.
   textMap :: (FromJSONKey k, ToJSONKey k, IsString k, Ord k)
-          => repr t o -- ^ Element schema
-          -> repr ('IndexedNode Symbol t) (M.Map k o)
+          => repr tree o -- ^ Element schema
+          -> repr ('IndexedNode Symbol tree) (M.Map k o)
 
   -- | Construct a 'Set' schema given a schema for it's elements.
   set :: Ord o
-      => repr t o -- ^ Element schema
-      -> repr ('IndexedNode Nat t) (S.Set o)
+      => repr tree o -- ^ Element schema
+      -> repr ('IndexedNode Nat tree) (S.Set o)
 
   -- | Construct a 'Vector' schema given a schema for it's elements.
-  vector :: repr t o -- ^ Element schema
-         -> repr ('IndexedNode Nat t) (V.Vector o)
+  vector :: repr tree o -- ^ Element schema
+         -> repr ('IndexedNode Nat tree) (V.Vector o)
 
 class FieldSYM repr where
   data Field repr :: Type -> Tree -> Type -> Type
@@ -216,23 +213,22 @@ class UnionSYM (repr :: Tree -> Type -> Type) where
   --    classifierJ = union \"Classifier\" $
   --      classifierTags
   --        \<\<$> tag (key \@\"flora\") Flora plantJ
-  --        \<\<*> tag (key \@"\fauna\") Fauna fuanaJ
+  --        \<\<*> tag (key \@"\fauna\") Fauna animalJ
   -- @
+  --
+  -- The resulting JSON is an object with a single field with a key/value pair
+  -- corresponding to one of the branches of the sum type.
   union :: ( tree ~ 'Node 'Sum edges
-           , NonRecursive '[union] edges
            , NoDuplicateKeys union edges
            )
         => String -- ^ Name of the union as it will appear in parse errors
-        -> IFreeAp (Tag repr union) tree (union -> Result repr union)
+        -> TreeBuilder (Tag repr union) tree (union -> Result repr union)
            -- ^ A collection of tags, one for each branch of the union
         -> repr tree union
 
   -- | Used to declare a single branch of a sum type. The constructor for the
   -- branch should take a single argument. If you require more than one argument
   -- then you should package them up into a separate record type.
-  --
-  -- The resulting JSON is an object with a single field with a key/value pair
-  -- corresponding to one of the branches of the sum type.
   tag :: ( KnownSymbol name
          , edge ~ 'Edge name 'Nullable v subTree
          , tree ~ 'Node 'Sum '[edge]
@@ -402,61 +398,36 @@ type family KeyNotPresent (key :: Symbol) (obj :: Type) (edges :: [Edge]) :: Con
   KeyNotPresent key obj '[] = ()
 
 --------------------------------------------------------------------------------
--- No Recursion Constraint
---------------------------------------------------------------------------------
-
--- TODO how useful is this?
--- | Raises a friendly type error for `Tree`s that contain cycles
-type family NonRecursive (visited :: [Type]) (edges :: [Edge]) :: Constraint where
-  NonRecursive visited ('Edge key q ty tree ': rest)
-    = If (Elem ty visited)
-         (TypeError ('Text "Recursive JSON types are not allowed."))
-         (NonRecursive visited rest, NonRecursive (ty ': visited) (GetEdges tree))
-  NonRecursive visited '[] = ()
-
-type family GetEdges (t :: Tree) :: [Edge] where
-  GetEdges ('Node aggr edges) = edges
-  GetEdges 'Leaf = '[]
-  GetEdges ('IndexedNode k st) = GetEdges st
-
-type family Elem (needle :: Type) (haystack :: [Type]) :: Bool where
-  Elem needle (needle ': rest) = 'True
-  Elem needle (head ': rest) = Elem needle rest
-  Elem needle '[] = 'False
-
--- TODO can the two constraints be fused?
-
---------------------------------------------------------------------------------
 -- Free Indexed Applicative
 --------------------------------------------------------------------------------
 
--- | An Indexed Free Applicative variant that is used to build 'Tree's by
+-- | An indexed free applicative variant that is used to build 'Tree's by
 -- gathering up all the edges.
-data IFreeAp (f :: Tree -> Type -> Type) (t :: Tree) (a :: Type) where
-  Pure :: a -> IFreeAp f ('Node aggr '[]) a
-  Ap   :: IFreeAp f ('Node aggr edges) (a -> b)
+data TreeBuilder (f :: Tree -> Type -> Type) (t :: Tree) (a :: Type) where
+  Pure :: a -> TreeBuilder f ('Node aggr '[]) a
+  Ap   :: TreeBuilder f ('Node aggr edges) (a -> b)
        -> f ('Node aggr '[edge]) a
-       -> IFreeAp f ('Node aggr (edge ': edges)) b
+       -> TreeBuilder f ('Node aggr (edge ': edges)) b
 
--- | Intended to be used like '<$>'
+-- | Used like '<$>' in schema definitions
 (<<$>) :: (a -> b)
        -> f ('Node aggr '[edge]) a
-       -> IFreeAp f ('Node aggr '[edge]) b
+       -> TreeBuilder f ('Node aggr '[edge]) b
 f <<$> i = Pure f `Ap` i
 infixl 4 <<$>
 
--- | Intended to be used like '<*>'
-(<<*>) :: IFreeAp f ('Node aggr edges) (a -> b)
+-- | Used like '<*>' in schema definitions
+(<<*>) :: TreeBuilder f ('Node aggr edges) (a -> b)
        -> f ('Node aggr '[edge]) a
-       -> IFreeAp f ('Node aggr (edge ': edges)) b
+       -> TreeBuilder f ('Node aggr (edge ': edges)) b
 (<<*>) = Ap
 infixl 4 <<*>
 
-runAp_ :: Monoid m => (forall a' t'. f t' a' -> m) -> IFreeAp f t a -> m
+runAp_ :: Monoid m => (forall a' t'. f t' a' -> m) -> TreeBuilder f t a -> m
 runAp_ _ (Pure _) = mempty
 runAp_ f (Ap p c) = runAp_ f p <> f c
 
-runAp :: Applicative g => (forall a' t'. f t' a' -> g a') -> IFreeAp f t a -> g a
+runAp :: Applicative g => (forall a' t'. f t' a' -> g a') -> TreeBuilder f t a -> g a
 runAp _ (Pure a) = pure a
 runAp f (Ap p c) = runAp f p <*> f c
 

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 750200be80d275748d5615f34fe15ea9b90177b0b1ca576332806c5ec4faa7ff
+-- hash: 8286b4e68b2ff7c46b4deb20738b8a322f93c70da367c44a6cb8c33a68661ad6
 
 name:           typson-core
 version:        0.1.0.0
@@ -36,7 +36,7 @@ library
       Paths_typson_core
   hs-source-dirs:
       src
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  ghc-options: -Wall
   build-depends:
       aeson
     , base >=4.7 && <5

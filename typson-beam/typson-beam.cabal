@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0945be5fcfb88052f879913e7a1d95e65e7784ff6b845023f1eb482072264157
+-- hash: 53ae724cd9ec05b3dc90cd75ac4688f67f8e75b0e346fb591105ec5e54c9d8c7
 
 name:           typson-beam
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson-beam#readme>
-homepage:       https://github.com/aaronallen8455/typson-beam#readme
-bug-reports:    https://github.com/aaronallen8455/typson-beam/issues
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+homepage:       https://github.com/aaronallen8455/typson#readme
+bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -23,7 +23,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/typson-beam
+  location: https://github.com/aaronallen8455/typson
 
 library
   exposed-modules:
@@ -35,8 +35,8 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
-    , beam-core
-    , beam-postgres
+    , beam-core >=0.9.0.0 && <0.10.0.0
+    , beam-postgres >=0.5.0.0 && <0.6.0.0
     , postgresql-simple
     , typson-core
   default-language: Haskell2010

@@ -1,6 +1,6 @@
 name:                typson-beam
 version:             0.1.0.0
-github:              "aaronallen8455/typson-beam"
+github:              "aaronallen8455/typson"
 license:             BSD3
 author:              "Aaron Allen"
 maintainer:          "aaronallen8455@gmail.com"
@@ -17,13 +17,13 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/aaronallen8455/typson-beam#readme>
+description: Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
 
 dependencies:
 - base >= 4.7 && < 5
 - aeson
-- beam-core
-- beam-postgres
+- beam-core >= 0.9.0.0 && < 0.10.0.0
+- beam-postgres >= 0.5.0.0 && < 0.6.0.0
 - postgresql-simple
 - typson-core
 

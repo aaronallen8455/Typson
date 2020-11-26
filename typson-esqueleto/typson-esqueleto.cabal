@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1f5c9a45885c476c795ebb5b4503c4f41456d8be91dcf1353a6b50c1db560edc
+-- hash: 560ad203c575d613db736faaef97288de4aad657c6c2b6faeb9f38d57a19f37b
 
 name:           typson-esqueleto
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson-esqueleto#readme>
-homepage:       https://github.com/aaronallen8455/typson-esqueleto#readme
-bug-reports:    https://github.com/aaronallen8455/typson-esqueleto/issues
+description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+homepage:       https://github.com/aaronallen8455/typson#readme
+bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen
 maintainer:     aaronallen8455@gmail.com
 copyright:      2020 Aaron Allen
@@ -23,7 +23,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/aaronallen8455/typson-esqueleto
+  location: https://github.com/aaronallen8455/typson
 
 library
   exposed-modules:
