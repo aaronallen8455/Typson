@@ -4,11 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 53ae724cd9ec05b3dc90cd75ac4688f67f8e75b0e346fb591105ec5e54c9d8c7
+-- hash: e51cd8cb068aa614105f336d29cab9e19bca237c85c572119e5b6b3ca53c3d30
 
 name:           typson-beam
-version:        0.1.0.0
+version:        0.1.0.1
+synopsis:       Typson Beam Integration
 description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+category:       Database
 homepage:       https://github.com/aaronallen8455/typson#readme
 bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen

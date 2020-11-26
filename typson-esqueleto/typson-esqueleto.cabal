@@ -4,11 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 560ad203c575d613db736faaef97288de4aad657c6c2b6faeb9f38d57a19f37b
+-- hash: 18f336da158e3360a0997c62d750fee10c0dd696e5e23efcb713000d9638efd8
 
 name:           typson-esqueleto
-version:        0.1.0.0
+version:        0.1.0.1
+synopsis:       Typson Esqueleto Integration
 description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+category:       Database
 homepage:       https://github.com/aaronallen8455/typson#readme
 bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen

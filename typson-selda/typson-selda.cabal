@@ -4,11 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a7574b3321361b5d2a321954e4fc9f9fff8cec5b50521a2efc0c444f007ccf0d
+-- hash: 238d1648fa8954f5890d0683f87c5ecdafe5e5353baa61156a860ab4ed42d036
 
 name:           typson-selda
 version:        0.1.0.0
+synopsis:       Typson Selda Integration
 description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
+category:       Database
 homepage:       https://github.com/aaronallen8455/typson#readme
 bug-reports:    https://github.com/aaronallen8455/typson/issues
 author:         Aaron Allen

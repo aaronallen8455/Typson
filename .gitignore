@@ -3,3 +3,5 @@ shm
 *~
 tags
 docs
+dist-newstyle
+generating-haddocks.md

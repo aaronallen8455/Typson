@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8286b4e68b2ff7c46b4deb20738b8a322f93c70da367c44a6cb8c33a68661ad6
+-- hash: 14c0e54e6bead0e054aefaa30c7e83d9ad1d686ae2f8cbd5b6cb850e0833bab0
 
 name:           typson-core
-version:        0.1.0.0
+version:        0.1.0.1
 synopsis:       Type-safe PostgreSQL JSON Querying
 description:    Please see the README on GitHub at <https://github.com/aaronallen8455/typson#readme>
 category:       Database
@@ -21,6 +21,7 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     ChangeLog.md
+    README.md
 
 source-repository head
   type: git

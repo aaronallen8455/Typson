@@ -1,5 +1,5 @@
 name:                typson-esqueleto
-version:             0.1.0.0
+version:             0.1.0.1
 github:              "aaronallen8455/typson"
 license:             BSD3
 author:              "Aaron Allen"
@@ -10,9 +10,8 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis: Typson Esqueleto Integration
+category: Database
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is

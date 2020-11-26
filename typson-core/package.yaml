@@ -1,5 +1,5 @@
 name:                typson-core
-version:             0.1.0.0
+version:             0.1.0.1
 github:              "aaronallen8455/typson"
 license:             BSD3
 author:              "Aaron Allen"
@@ -8,6 +8,7 @@ copyright:           "2020 Aaron Allen"
 
 extra-source-files:
 - ChangeLog.md
+- README.md
 
 synopsis: Type-safe PostgreSQL JSON Querying
 category: Database
