@@ -95,7 +95,7 @@ This will allow us to query for specific indices of the list.
 - The first argument of the field combinators is the key to be used in the JSON.
 It is supplied using `key` which is just a synonym for `Proxy`. A type error
 occurrs if a key appears more than once in the same object.
-- The second argument is the field accesor of the record.
+- The second argument is the field accessor of the record.
 - The final argument is the schema associated with the type of the field. If the
 field's type is some sort of primative that has predefined `ToJSON` and
 `FromJSON` instances, then the `prim` schema should be used.
